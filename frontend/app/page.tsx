@@ -1,0 +1,244 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Package, FileText, Bot, Activity, Clock } from "lucide-react";
+import { StatCard } from "@/components/stat-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const API = "http://localhost:8521";
+
+interface OverviewStats {
+  total_repos: number;
+  total_articles: number;
+  total_agents: number;
+  last_updated: string;
+}
+
+interface Repo {
+  name: string;
+  description: string;
+  stargazerCount: number;
+  forkCount: number;
+  createdAt: string;
+  url: string;
+}
+
+interface Agent {
+  [key: string]: string;
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+export default function OverviewPage() {
+  const [stats, setStats] = useState<OverviewStats | null>(null);
+  const [repos, setRepos] = useState<Repo[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [ovRes, prodRes, agentsRes] = await Promise.all([
+          fetch(`${API}/api/overview`),
+          fetch(`${API}/api/products`),
+          fetch(`${API}/api/agents`),
+        ]);
+        const ov = await ovRes.json();
+        const prod = await prodRes.json();
+        const ag = await agentsRes.json();
+        setStats(ov.stats);
+        setRepos((prod.repos ?? []).slice(0, 5));
+        setAgents(ag.agents ?? []);
+      } catch {
+        setError("Failed to connect to backend at :8521");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-400 text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-6xl">
+      <div>
+        <h1 className="text-xl font-semibold text-zinc-100">Overview</h1>
+        <p className="text-sm text-zinc-500 mt-1">
+          {stats?.last_updated
+            ? `Last updated ${timeAgo(stats.last_updated)}`
+            : "Loading…"}
+        </p>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl bg-zinc-800" />
+          ))
+        ) : (
+          <>
+            <StatCard
+              label="Repositories"
+              value={stats?.total_repos ?? 0}
+              icon={Package}
+              accent="text-blue-400"
+            />
+            <StatCard
+              label="Articles"
+              value={stats?.total_articles ?? 0}
+              icon={FileText}
+              accent="text-green-400"
+            />
+            <StatCard
+              label="Cron Agents"
+              value={stats?.total_agents ?? 0}
+              icon={Bot}
+              accent="text-violet-400"
+            />
+            <StatCard
+              label="Active"
+              value={agents.filter((a) =>
+                Object.values(a).some((v) =>
+                  v?.toLowerCase().includes("active")
+                )
+              ).length}
+              icon={Activity}
+              accent="text-orange-400"
+              sub="agents running"
+            />
+          </>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Recent Repos */}
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-zinc-300">
+              Recent Repositories
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {loading
+              ? Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 bg-zinc-800 rounded-lg" />
+                ))
+              : repos.map((repo) => (
+                  <a
+                    key={repo.name}
+                    href={repo.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-zinc-800 transition-colors group"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-200 group-hover:text-violet-300 truncate">
+                        {repo.name}
+                      </p>
+                      <p className="text-xs text-zinc-500 truncate">
+                        {repo.description || "—"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-3 shrink-0">
+                      {repo.stargazerCount > 0 && (
+                        <span className="text-xs text-zinc-500">
+                          ★ {repo.stargazerCount}
+                        </span>
+                      )}
+                      <span className="text-xs text-zinc-600">
+                        {timeAgo(repo.createdAt)}
+                      </span>
+                    </div>
+                  </a>
+                ))}
+          </CardContent>
+        </Card>
+
+        {/* Agent Fleet */}
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-zinc-300">
+              Agent Fleet
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  className="h-10 bg-zinc-800 rounded-lg mb-2"
+                />
+              ))
+            ) : agents.length === 0 ? (
+              <p className="text-sm text-zinc-500 py-4 text-center">
+                No agents found — is openclaw installed?
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {agents.slice(0, 6).map((agent, i) => {
+                  const name =
+                    agent.name ||
+                    agent.Name ||
+                    agent.id ||
+                    agent.ID ||
+                    `Agent ${i + 1}`;
+                  const status =
+                    agent.status || agent.Status || agent.state || "unknown";
+                  const schedule =
+                    agent.schedule || agent.Schedule || agent.cron || "";
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between px-3 py-2 rounded-lg bg-zinc-800/50"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-200 truncate">
+                          {name}
+                        </p>
+                        {schedule && (
+                          <p className="text-xs text-zinc-500 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {schedule}
+                          </p>
+                        )}
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] shrink-0 ml-2 ${
+                          status.toLowerCase().includes("active") ||
+                          status.toLowerCase().includes("run")
+                            ? "border-green-700 text-green-400"
+                            : "border-zinc-700 text-zinc-400"
+                        }`}
+                      >
+                        {status}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
