@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Package, FileText, Bot, Activity, Clock } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Package, FileText, Bot, Activity, Clock, RefreshCw } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const API = "http://localhost:8521";
+const REFRESH_INTERVAL = 30000; // 30 seconds
 
 interface OverviewStats {
   total_repos: number;
@@ -26,12 +27,13 @@ interface Repo {
 }
 
 interface Agent {
-  [key: string]: string;
+  [key: string]: any;
 }
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -43,32 +45,39 @@ export default function OverviewPage() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [ovRes, prodRes, agentsRes] = await Promise.all([
-          fetch(`${API}/api/overview`),
-          fetch(`${API}/api/products`),
-          fetch(`${API}/api/agents`),
-        ]);
-        const ov = await ovRes.json();
-        const prod = await prodRes.json();
-        const ag = await agentsRes.json();
-        setStats(ov.stats);
-        setRepos((prod.repos ?? []).slice(0, 5));
-        setAgents(ag.agents ?? []);
-      } catch {
-        setError("Failed to connect to backend at :8521");
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    try {
+      const [ovRes, prodRes, agentsRes] = await Promise.all([
+        fetch(`${API}/api/overview`),
+        fetch(`${API}/api/products`),
+        fetch(`${API}/api/agents`),
+      ]);
+      const ov = await ovRes.json();
+      const prod = await prodRes.json();
+      const ag = await agentsRes.json();
+      setStats(ov.stats);
+      setRepos((prod.repos ?? []).slice(0, 5));
+      setAgents(ag.agents ?? []);
+      setError(null);
+    } catch {
+      setError("Failed to connect to backend at :8521");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  if (error) {
+  useEffect(() => {
+    load();
+    const interval = setInterval(() => load(true), REFRESH_INTERVAL);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  if (error && loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-red-400 text-sm">{error}</p>
@@ -78,13 +87,21 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-100">Overview</h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          {stats?.last_updated
-            ? `Last updated ${timeAgo(stats.last_updated)}`
-            : "Loading…"}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-100">Overview</h1>
+          <p className="text-sm text-zinc-500 mt-1 flex items-center gap-2">
+            {stats?.last_updated
+              ? `Last updated ${timeAgo(stats.last_updated)}`
+              : "Loading…"}
+            {refreshing && <RefreshCw className="w-3 h-3 animate-spin inline-block ml-1" />}
+          </p>
+        </div>
+        {error && (
+          <Badge variant="outline" className="border-red-900 text-red-400 text-[10px]">
+            Offline
+          </Badge>
+        )}
       </div>
 
       {/* Stat Cards */}
@@ -117,7 +134,7 @@ export default function OverviewPage() {
               label="Active"
               value={agents.filter((a) =>
                 Object.values(a).some((v) =>
-                  v?.toLowerCase().includes("active")
+                  typeof v === 'string' && v.toLowerCase().includes("active")
                 )
               ).length}
               icon={Activity}

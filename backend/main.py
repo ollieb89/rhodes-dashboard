@@ -1,7 +1,6 @@
 import asyncio
 import json
 import os
-import re
 import subprocess
 from datetime import datetime, timezone
 
@@ -68,59 +67,48 @@ async def get_articles():
         return {"articles": [], "total": 0, "error": str(e)}
 
 
-def parse_openclaw_table(output: str) -> list[dict]:
-    """Parse openclaw cron list table output into JSON."""
-    agents = []
-    lines = [l for l in output.splitlines() if l.strip()]
-    # Find header line
-    header_idx = None
-    for i, line in enumerate(lines):
-        if re.search(r"name|id|schedule|status", line, re.IGNORECASE):
-            header_idx = i
-            break
-    if header_idx is None:
-        return agents
-    header_line = lines[header_idx]
-    # Try to find column positions from separator or header
-    sep_idx = None
-    for i in range(header_idx + 1, len(lines)):
-        if re.match(r"[-+| ]+$", lines[i]):
-            sep_idx = i
-            break
-    data_start = (sep_idx + 1) if sep_idx is not None else header_idx + 1
-    # Parse headers by splitting on 2+ spaces or |
-    if "|" in header_line:
-        headers = [h.strip() for h in header_line.split("|") if h.strip()]
-        for line in lines[data_start:]:
-            if re.match(r"[-+| ]+$", line):
-                continue
-            cols = [c.strip() for c in line.split("|") if c.strip()]
-            if cols:
-                agents.append(dict(zip(headers, cols)))
-    else:
-        headers = re.split(r"\s{2,}", header_line.strip())
-        for line in lines[data_start:]:
-            cols = re.split(r"\s{2,}", line.strip())
-            if cols:
-                agents.append(dict(zip(headers, cols)))
-    return agents
-
-
 @app.get("/api/agents")
 async def get_agents():
     try:
-        output = await asyncio.to_thread(run, ["openclaw", "cron", "list"])
-        agents = parse_openclaw_table(output)
-        return {"agents": agents, "total": len(agents), "raw": output}
+        output = await asyncio.to_thread(run, ["openclaw", "cron", "list", "--json"])
+        data = json.loads(output)
+        jobs = data.get("jobs", [])
+        
+        normalized = []
+        for job in jobs:
+            state = job.get("state", {})
+            status = state.get("lastRunStatus", "unknown")
+            if state.get("runningAtMs"):
+                status = "running"
+            elif not job.get("enabled"):
+                status = "paused"
+            
+            last_run = None
+            if state.get("lastRunAtMs"):
+                last_run = datetime.fromtimestamp(state["lastRunAtMs"] / 1000, tz=timezone.utc).isoformat()
+            
+            next_run = None
+            if state.get("nextRunAtMs"):
+                next_run = datetime.fromtimestamp(state["nextRunAtMs"] / 1000, tz=timezone.utc).isoformat()
+
+            normalized.append({
+                "id": job.get("id"),
+                "name": job.get("name"),
+                "schedule": job.get("schedule", {}).get("expr", "manual"),
+                "status": status,
+                "last_run": last_run,
+                "next_run": next_run
+            })
+            
+        return {"agents": normalized, "total": len(normalized)}
     except FileNotFoundError:
         return {
             "agents": [],
             "total": 0,
             "error": "openclaw not found in PATH",
-            "raw": "",
         }
     except Exception as e:
-        return {"agents": [], "total": 0, "error": str(e), "raw": ""}
+        return {"agents": [], "total": 0, "error": str(e)}
 
 
 @app.get("/api/hn")
@@ -195,8 +183,8 @@ async def _get_articles_count() -> int:
 
 async def _get_agents_count() -> int:
     try:
-        output = await asyncio.to_thread(run, ["openclaw", "cron", "list"])
-        return len(parse_openclaw_table(output))
+        resp = await get_agents()
+        return resp.get("total", 0)
     except Exception:
         return 0
 
