@@ -32,7 +32,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-002** · S · Add `GET /api/crons/{id}/run` endpoint
+- [x] **DASH-002** · S · Add `GET /api/crons/{id}/run` endpoint
 
   Add a new FastAPI endpoint that triggers a specific cron job by its ID via `openclaw cron run <id>`. Return `{ ok: true, output: string }` on success or `{ ok: false, error: string }` on failure. Keep the timeout short (15 s) — just enough to confirm the job was kicked off, not to wait for completion. Add the endpoint to `backend/main.py`.
 

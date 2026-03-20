@@ -5,7 +5,7 @@ import subprocess
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Rhodes Command Center API")
@@ -24,6 +24,8 @@ ENV = {**os.environ, "PATH": f"{NODE_BIN}:{os.environ.get('PATH', '')}"}
 
 def run(cmd: list[str]) -> str:
     result = subprocess.run(cmd, capture_output=True, text=True, env=ENV, timeout=30)
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
     return result.stdout.strip()
 
 
@@ -109,6 +111,23 @@ async def get_agents():
         }
     except Exception as e:
         return {"agents": [], "total": 0, "error": str(e)}
+
+
+@app.post("/api/crons/{id}/run")
+async def run_cron(id: str):
+    try:
+        # We use a short timeout (15s) as per requirement
+        output = await asyncio.to_thread(
+            run,
+            ["openclaw", "cron", "run", id]
+        )
+        return {"ok": True, "output": output}
+    except FileNotFoundError:
+        return {"ok": False, "error": "openclaw not found in PATH"}
+    except subprocess.CalledProcessError as e:
+        return {"ok": False, "error": f"Command failed: {e.stderr or e.stdout}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 @app.get("/api/hn")
