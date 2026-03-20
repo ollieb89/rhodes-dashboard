@@ -144,6 +144,62 @@ async def get_hn(query: str = "workflow-guardian"):
         return {"posts": [], "total": 0, "error": str(e)}
 
 
+@app.get("/api/metrics")
+async def get_metrics():
+    api_key = os.environ.get("DEVTO_API_KEY", "")
+
+    async def fetch_repos():
+        try:
+            output = await asyncio.to_thread(
+                run,
+                ["gh", "repo", "list", "ollieb89", "--json", "name,stargazerCount,forkCount,url", "-L", "50"],
+            )
+            return json.loads(output) if output else []
+        except Exception:
+            return []
+
+    async def fetch_articles():
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                headers = {"api-key": api_key} if api_key else {}
+                resp = await client.get(
+                    "https://dev.to/api/articles/me?per_page=30",
+                    headers=headers,
+                )
+                data = resp.json() if resp.status_code == 200 else []
+                return data if isinstance(data, list) else []
+        except Exception:
+            return []
+
+    repos, articles = await asyncio.gather(fetch_repos(), fetch_articles())
+
+    total_stars = sum(r.get("stargazerCount", 0) for r in repos)
+    total_forks = sum(r.get("forkCount", 0) for r in repos)
+    total_article_views = sum(a.get("page_views_count", 0) for a in articles)
+    total_article_reactions = sum(a.get("public_reactions_count", 0) for a in articles)
+
+    top_repo = None
+    if repos:
+        best = max(repos, key=lambda r: r.get("stargazerCount", 0))
+        top_repo = {"name": best.get("name"), "stars": best.get("stargazerCount", 0), "url": best.get("url")}
+
+    top_article = None
+    if articles:
+        best = max(articles, key=lambda a: a.get("page_views_count", 0))
+        top_article = {"title": best.get("title"), "views": best.get("page_views_count", 0), "url": best.get("url")}
+
+    return {
+        "total_stars": total_stars,
+        "total_forks": total_forks,
+        "total_repos": len(repos),
+        "total_articles": len(articles),
+        "total_article_views": total_article_views,
+        "total_article_reactions": total_article_reactions,
+        "top_repo": top_repo,
+        "top_article": top_article,
+    }
+
+
 @app.get("/api/overview")
 async def get_overview():
     # Run all fetches concurrently

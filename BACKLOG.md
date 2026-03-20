@@ -55,7 +55,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P1 — Important
 
-- [ ] **DASH-004** · M · Build a `/api/metrics` endpoint with aggregated stats
+- [x] **DASH-004** · M · Build a `/api/metrics` endpoint with aggregated stats
 
   Add `GET /api/metrics` to `backend/main.py`. It should call `/api/products` and `/api/articles` internally (or reuse the helper functions) and return:
   ```json
