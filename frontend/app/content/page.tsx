@@ -81,26 +81,29 @@ export default function ContentPage() {
       </div>
 
       {/* Summary row */}
-      {!loading && articles.length > 0 && (
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { label: "Published", value: published.length },
-            { label: "Drafts", value: drafts.length },
-            { label: "Total Views", value: totalViews.toLocaleString() },
-            { label: "Reactions", value: totalReactions },
-          ].map(({ label, value }) => (
-            <div
-              key={label}
-              className="bg-zinc-900 border border-zinc-800 rounded-xl p-3"
-            >
-              <p className="text-xs text-zinc-500 uppercase tracking-wide">
-                {label}
-              </p>
-              <p className="text-xl font-bold text-zinc-100 mt-1">{value}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-4 gap-3">
+        {loading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 bg-zinc-800 rounded-xl" />
+            ))
+          : articles.length > 0 &&
+            [
+              { label: "Published", value: published.length },
+              { label: "Drafts", value: drafts.length },
+              { label: "Total Views", value: totalViews.toLocaleString() },
+              { label: "Reactions", value: totalReactions },
+            ].map(({ label, value }) => (
+              <div
+                key={label}
+                className="bg-zinc-900 border border-zinc-800 rounded-xl p-3"
+              >
+                <p className="text-xs text-zinc-500 uppercase tracking-wide">
+                  {label}
+                </p>
+                <p className="text-xl font-bold text-zinc-100 mt-1">{value}</p>
+              </div>
+            ))}
+      </div>
 
       <Tabs defaultValue="devto">
         <TabsList className="bg-zinc-800 border border-zinc-700">

@@ -60,7 +60,14 @@ export default function OverviewPage() {
       const prod = await prodRes.json();
       const ag = await agentsRes.json();
       setStats(ov.stats);
-      setRepos((prod.repos ?? []).slice(0, 5));
+      setRepos(
+        (prod.repos ?? [])
+          .sort(
+            (a: Repo, b: Repo) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+          .slice(0, 5)
+      );
       setAgents(ag.agents ?? []);
       setError(null);
     } catch {
@@ -132,13 +139,10 @@ export default function OverviewPage() {
             />
             <StatCard
               label="Active"
-              value={agents.filter((a: Agent) =>
-                const status = a.status || "unknown";
-                  const s = status.toLowerCase();
-                  return s === "active" || s === "running";
-                  true
-                )
-              ).length}
+              value={agents.filter((a: Agent) => {
+                const status = (a.status || "unknown").toLowerCase();
+                return status === "active" || status === "running";
+              }).length}
               icon={Activity}
               accent="text-orange-400"
               sub="agents running"
@@ -223,6 +227,7 @@ export default function OverviewPage() {
                     agent.status || agent.Status || agent.state || "unknown";
                   const schedule =
                     agent.schedule || agent.Schedule || agent.cron || "";
+                  const lastRun = agent.last_run || agent.lastRun || null;
                   return (
                     <div
                       key={i}
@@ -232,12 +237,19 @@ export default function OverviewPage() {
                         <p className="text-sm font-medium text-zinc-200 truncate">
                           {name}
                         </p>
-                        {schedule && (
-                          <p className="text-xs text-zinc-500 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {schedule}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-3">
+                          {schedule && (
+                            <p className="text-xs text-zinc-500 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {schedule}
+                            </p>
+                          )}
+                          {lastRun && (
+                            <p className="text-xs text-zinc-600">
+                              ran {timeAgo(lastRun)}
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <Badge
                         variant="outline"
