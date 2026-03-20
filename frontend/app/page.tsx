@@ -27,7 +27,12 @@ interface Repo {
 }
 
 interface Agent {
-  [key: string]: any;
+  id: string;
+  name: string;
+  status: string;
+  schedule: string;
+  last_run: string | null;
+  next_run: string | null;
 }
 
 function timeAgo(iso: string): string {
@@ -139,10 +144,7 @@ export default function OverviewPage() {
             />
             <StatCard
               label="Active"
-              value={agents.filter((a: Agent) => {
-                const status = (a.status || "unknown").toLowerCase();
-                return status === "active" || status === "running";
-              }).length}
+              value={agents.filter((a: Agent) => a.status === "active" || a.status === "running").length}
               icon={Activity}
               accent="text-orange-400"
               sub="agents running"
@@ -217,17 +219,10 @@ export default function OverviewPage() {
             ) : (
               <div className="space-y-2">
                 {agents.slice(0, 6).map((agent, i) => {
-                  const name =
-                    agent.name ||
-                    agent.Name ||
-                    agent.id ||
-                    agent.ID ||
-                    `Agent ${i + 1}`;
-                  const status =
-                    agent.status || agent.Status || agent.state || "unknown";
-                  const schedule =
-                    agent.schedule || agent.Schedule || agent.cron || "";
-                  const lastRun = agent.last_run || agent.lastRun || null;
+                  const name = agent.name || agent.id || `Agent ${i + 1}`;
+                  const status = agent.status || "unknown";
+                  const schedule = agent.schedule || "";
+                  const lastRun = agent.last_run || null;
                   return (
                     <div
                       key={i}
@@ -254,8 +249,8 @@ export default function OverviewPage() {
                       <Badge
                         variant="outline"
                         className={`text-[10px] shrink-0 ml-2 ${
-                          status.toLowerCase().includes("active") ||
-                          status.toLowerCase().includes("run")
+                          status.toLowerCase() === "active" ||
+                          status.toLowerCase() === "running"
                             ? "border-green-700 text-green-400"
                             : "border-zinc-700 text-zinc-400"
                         }`}
