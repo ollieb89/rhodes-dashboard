@@ -132,9 +132,11 @@ export default function OverviewPage() {
             />
             <StatCard
               label="Active"
-              value={agents.filter((a) =>
-                Object.values(a).some((v) =>
-                  typeof v === 'string' && v.toLowerCase().includes("active")
+              value={agents.filter((a: Agent) =>
+                const status = a.status || "unknown";
+                  const s = status.toLowerCase();
+                  return s === "active" || s === "running";
+                  true
                 )
               ).length}
               icon={Activity}
