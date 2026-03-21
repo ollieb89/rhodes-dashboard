@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, MessageSquare, Eye, ExternalLink, TrendingUp, Search, Download } from "lucide-react";
+import { Heart, MessageSquare, Eye, ExternalLink, TrendingUp, Search, Download, Pin } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { usePins } from "@/hooks/use-pins";
 
 const API = "http://localhost:8521";
 
@@ -84,6 +85,7 @@ function downloadArticlesCsv(articles: Article[]) {
 
 export default function ContentPage() {
   const [articles, setArticles] = useState<Article[]>([]);
+  const { pins: articlePins, toggle: toggleArticle, isPinned: isArticlePinned } = usePins("articles");
   const [hnPosts, setHnPosts] = useState<HNPost[]>([]);
   const [hnQuery, setHnQuery] = useState("workflow-guardian");
   const [hnInput, setHnInput] = useState("workflow-guardian");
@@ -121,8 +123,9 @@ export default function ContentPage() {
     fetchHN(hnInput);
   };
 
-  const published = articles.filter((a) => a.published);
-  const drafts = articles.filter((a) => !a.published);
+  const sortedArticles = [...articles.filter((a) => isArticlePinned(String(a.id))), ...articles.filter((a) => !isArticlePinned(String(a.id)))];
+  const published = sortedArticles.filter((a) => a.published);
+  const drafts = sortedArticles.filter((a) => !a.published);
   const totalViews = articles.reduce(
     (s, a) => s + (a.page_views_count ?? 0),
     0
@@ -208,10 +211,10 @@ export default function ContentPage() {
                 No articles found. Is DEVTO_API_KEY set?
               </p>
             ) : (
-              articles.map((article) => (
+              sortedArticles.map((article) => (
                 <Card
                   key={article.id}
-                  className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-colors"
+                  className={`border-zinc-800 hover:border-zinc-700 transition-colors ${isArticlePinned(String(article.id)) ? "bg-violet-950/20 border-violet-800/40" : "bg-zinc-900"}`}
                 >
                   <CardContent className="pt-4 pb-4 px-5">
                     <div className="flex items-start justify-between gap-3">
@@ -269,14 +272,18 @@ export default function ContentPage() {
                           ))}
                         </div>
                       </div>
-                      <a
-                        href={article.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-zinc-600 hover:text-zinc-400 shrink-0 mt-1"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
+                      <div className="flex flex-col items-center gap-2 shrink-0 mt-1">
+                        <button
+                          onClick={() => toggleArticle(String(article.id))}
+                          className={`p-0.5 rounded transition-colors ${isArticlePinned(String(article.id)) ? "text-violet-400 hover:text-violet-300" : "text-zinc-600 hover:text-violet-400"}`}
+                          title={isArticlePinned(String(article.id)) ? "Unpin" : "Pin to top"}
+                        >
+                          <Pin className={`w-3.5 h-3.5 ${isArticlePinned(String(article.id)) ? "fill-current" : ""}`} />
+                        </button>
+                        <a href={article.url} target="_blank" rel="noreferrer" className="text-zinc-600 hover:text-zinc-400">
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

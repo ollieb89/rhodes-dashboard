@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, GitFork, ExternalLink, Package, ArrowUpDown, Download, CheckCircle, XCircle, Loader, Circle } from "lucide-react";
+import { Star, GitFork, ExternalLink, Package, ArrowUpDown, Download, CheckCircle, XCircle, Loader, Circle, Pin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { usePins } from "@/hooks/use-pins";
 
 const API = "http://localhost:8521";
 type SortKey = "stars" | "forks" | "newest";
@@ -31,12 +32,15 @@ function timeAgo(iso: string): string {
 const SORT_LABELS: Record<SortKey, string> = { stars: "Stars", forks: "Forks", newest: "Newest" };
 const SORT_ORDER: SortKey[] = ["stars", "forks", "newest"];
 
-function sortRepos(repos: Repo[], key: SortKey): Repo[] {
-  return [...repos].sort((a, b) => {
+function sortRepos(repos: Repo[], key: SortKey, pinnedNames: Set<string>): Repo[] {
+  const pinned = repos.filter((r) => pinnedNames.has(r.name));
+  const rest = repos.filter((r) => !pinnedNames.has(r.name));
+  const sortFn = (a: Repo, b: Repo) => {
     if (key === "stars") return b.stargazerCount - a.stargazerCount;
     if (key === "forks") return b.forkCount - a.forkCount;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  };
+  return [...pinned.sort(sortFn), ...rest.sort(sortFn)];
 }
 
 function escapeCsv(val: string | number | null | undefined): string {
@@ -93,6 +97,7 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("stars");
+  const { pins, toggle, isPinned } = usePins("repos");
 
   useEffect(() => {
     fetch(`${API}/api/products`).then((r) => r.json()).then((d) => setRepos(d.repos ?? [])).catch(() => setError("Backend unavailable")).finally(() => setLoading(false));
@@ -101,7 +106,7 @@ export default function ProductsPage() {
 
   const cycleSort = () => { const idx = SORT_ORDER.indexOf(sortKey); setSortKey(SORT_ORDER[(idx + 1) % SORT_ORDER.length]); };
   const filtered = repos.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()) || (r.description ?? "").toLowerCase().includes(search.toLowerCase()));
-  const sorted = sortRepos(filtered, sortKey);
+  const sorted = sortRepos(filtered, sortKey, pins);
 
   return (
     <ErrorBoundary>
@@ -128,7 +133,7 @@ export default function ProductsPage() {
           {loading
             ? Array.from({ length: 9 }).map((_, i) => <Skeleton key={i} className="h-32 bg-zinc-800 rounded-xl" />)
             : sorted.map((repo, idx) => (
-                <Card key={repo.name} className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-colors group">
+                <Card key={repo.name} className={`border-zinc-800 hover:border-zinc-700 transition-colors group ${isPinned(repo.name) ? "bg-violet-950/20 border-violet-800/40" : "bg-zinc-900"}`}>
                   <CardContent className="pt-4 pb-4 px-4">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 min-w-0">
@@ -136,7 +141,12 @@ export default function ProductsPage() {
                         <Package className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                         <a href={repo.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-zinc-200 group-hover:text-violet-300 truncate transition-colors">{repo.name}</a>
                       </div>
-                      <a href={repo.url} target="_blank" rel="noreferrer" className="text-zinc-600 hover:text-zinc-400 shrink-0"><ExternalLink className="w-3.5 h-3.5" /></a>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button onClick={() => toggle(repo.name)} className={`p-0.5 rounded transition-colors ${isPinned(repo.name) ? "text-violet-400 hover:text-violet-300" : "text-zinc-600 hover:text-violet-400"}`} title={isPinned(repo.name) ? "Unpin" : "Pin to top"}>
+                          <Pin className={`w-3.5 h-3.5 ${isPinned(repo.name) ? "fill-current" : ""}`} />
+                        </button>
+                        <a href={repo.url} target="_blank" rel="noreferrer" className="text-zinc-600 hover:text-zinc-400"><ExternalLink className="w-3.5 h-3.5" /></a>
+                      </div>
                     </div>
                     <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2 mb-2">{repo.description || "No description"}</p>
                     <div className="flex flex-wrap items-center gap-1.5 mb-2">
