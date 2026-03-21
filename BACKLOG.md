@@ -126,7 +126,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-008** · M · Add SQLite-backed history snapshots to the backend
+- [x] **DASH-008** · M · Add SQLite-backed history snapshots to the backend
 
   Add a lightweight persistence layer to `backend/main.py`:
   - On each call to `/api/overview`, save a snapshot row to a SQLite DB (`backend/history.db`) with columns: `id`, `timestamp`, `total_repos`, `total_stars`, `total_articles`, `total_agents`

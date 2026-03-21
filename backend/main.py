@@ -1,11 +1,12 @@
 import asyncio
 import json
 import os
+import sqlite3
 import subprocess
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Rhodes Command Center API")
@@ -20,6 +21,35 @@ app.add_middleware(
 
 NODE_BIN = os.path.expanduser("~/.nvm/versions/node/v22.21.1/bin")
 ENV = {**os.environ, "PATH": f"{NODE_BIN}:{os.environ.get('PATH', '')}"}
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "history.db")
+
+
+def _init_db() -> None:
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS history_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            total_repos INTEGER NOT NULL DEFAULT 0,
+            total_stars INTEGER NOT NULL DEFAULT 0,
+            total_articles INTEGER NOT NULL DEFAULT 0,
+            total_agents INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def _save_snapshot(total_repos: int, total_stars: int, total_articles: int, total_agents: int) -> None:
+    _init_db()
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO history_snapshots (timestamp, total_repos, total_stars, total_articles, total_agents) VALUES (?, ?, ?, ?, ?)",
+        (datetime.now(timezone.utc).isoformat(), total_repos, total_stars, total_articles, total_agents),
+    )
+    conn.commit()
+    conn.close()
 
 
 def run(cmd: list[str]) -> str:
@@ -202,13 +232,15 @@ async def get_metrics():
 
 @app.get("/api/overview")
 async def get_overview():
-    # Run all fetches concurrently
-    products_task = asyncio.create_task(_get_products_count())
-    articles_task = asyncio.create_task(_get_articles_count())
-    agents_task = asyncio.create_task(_get_agents_count())
+    products_count, articles_count, agents_count, total_stars = await asyncio.gather(
+        _get_products_count(),
+        _get_articles_count(),
+        _get_agents_count(),
+        _get_total_stars(),
+    )
 
-    products_count, articles_count, agents_count = await asyncio.gather(
-        products_task, articles_task, agents_task
+    await asyncio.to_thread(
+        _save_snapshot, products_count, total_stars, articles_count, agents_count
     )
 
     return {
@@ -219,6 +251,32 @@ async def get_overview():
             "last_updated": datetime.now(timezone.utc).isoformat(),
         }
     }
+
+
+@app.get("/api/history")
+async def get_history(days: int = Query(default=7, ge=1)):
+    _init_db()
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        """
+        SELECT timestamp, total_repos, total_stars, total_articles, total_agents
+        FROM history_snapshots
+        WHERE timestamp >= datetime('now', ? || ' days')
+        ORDER BY timestamp ASC
+        """,
+        (f"-{days}",),
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "timestamp": r[0],
+            "total_repos": r[1],
+            "total_stars": r[2],
+            "total_articles": r[3],
+            "total_agents": r[4],
+        }
+        for r in rows
+    ]
 
 
 async def _get_products_count() -> int:
@@ -262,6 +320,23 @@ async def _get_agents_count() -> int:
         return resp.get("total", 0)
     except Exception:
         return 0
+
+
+async def _get_total_stars() -> int:
+    try:
+        output = await asyncio.to_thread(
+            run,
+            ["gh", "repo", "list", "ollieb89", "--json", "stargazerCount", "-L", "50"],
+        )
+        repos = json.loads(output) if output else []
+        return sum(r.get("stargazerCount", 0) for r in repos)
+    except Exception:
+        return 0
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 
 if __name__ == "__main__":
