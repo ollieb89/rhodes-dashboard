@@ -43,7 +43,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-003** · S · Fix overview page agent "Active" count
+- [x] **DASH-003** · S · Fix overview page agent "Active" count
 
   The current "Active" count in `frontend/app/page.tsx` scans all string values of each agent object for the word "active" — this is incorrect and will always return 0 with the current openclaw output. Fix it to use the normalised `status` field from DASH-001's updated `/api/agents` response: count agents where `status === "active"` or `status === "running"`. If DASH-001 is not done yet, hardcode to check `agent.status` only.
 
@@ -306,4 +306,5 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 *(Implemented tasks move here)*
 - **DASH-001** · S · Fix /api/agents to return structured cron data
+- **DASH-003** · S · Fix overview page agent "Active" count
 - **DASH-005** · M · Build out the Metrics page with real data
