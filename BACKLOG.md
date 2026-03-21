@@ -412,7 +412,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-025** · S · Pin/favourite repos and articles
+- [x] **DASH-025** · S · Pin/favourite repos and articles
 
   Allow Ollie to pin repos and articles to the top of their respective pages. Pins persist in `localStorage`.
 
