@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Star, GitFork, ExternalLink, Package, ArrowUpDown, Download, CheckCircle, XCircle, Loader, Circle, Pin, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { UpdatedAgo } from "@/components/updated-ago";
 import { usePins } from "@/hooks/use-pins";
+import { apiFetch } from "@/lib/api";
 
-const API = "http://localhost:8521";
 type SortKey = "stars" | "forks" | "newest";
 
 interface Repo {
@@ -80,7 +80,7 @@ function ReadmePreview({ repoName, open }: { repoName: string; open: boolean }) 
       return;
     }
     setState({ content: null, loading: true, error: false });
-    fetch(`${API}/api/products/${repoName}/readme`)
+    apiFetch("/api/products/${repoName}/readme")
       .then((r) => r.json())
       .then((d) => {
         const text = d.content ?? "";
@@ -145,8 +145,8 @@ export default function ProductsPage() {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) { setRefreshing(true); } else { setLoading(true); setCiLoading(true); }
     const [prodRes, ciRes] = await Promise.allSettled([
-      fetch(`${API}/api/products`).then((r) => r.json()),
-      fetch(`${API}/api/ci`).then((r) => r.json()),
+      apiFetch("/api/products").then((r) => r.json()),
+      apiFetch("/api/ci").then((r) => r.json()),
     ]);
     if (prodRes.status === "fulfilled") { setRepos(prodRes.value.repos ?? []); setFetchedAt(new Date()); }
     else setError("Backend unavailable");
@@ -159,8 +159,10 @@ export default function ProductsPage() {
   useEffect(() => { load(); }, [load]);
 
   const cycleSort = () => { const idx = SORT_ORDER.indexOf(sortKey); setSortKey(SORT_ORDER[(idx + 1) % SORT_ORDER.length]); };
-  const filtered = repos.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()) || (r.description ?? "").toLowerCase().includes(search.toLowerCase()));
-  const sorted = sortRepos(filtered, sortKey, pins);
+  const sorted = useMemo(() => {
+    const filtered = repos.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()) || (r.description ?? "").toLowerCase().includes(search.toLowerCase()));
+    return sortRepos(filtered, sortKey, pins);
+  }, [repos, search, sortKey, pins]);
 
   return (
     <ErrorBoundary>

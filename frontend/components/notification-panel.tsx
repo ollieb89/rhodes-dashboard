@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { X, Trash2, Bell, RefreshCw, AlertCircle, Info, Settings } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { apiFetch } from "@/lib/api";
 
-const API = "http://localhost:8521";
 const STORAGE_KEY = "notifications_last_seen_ts";
 
 interface Event {
@@ -45,7 +45,7 @@ export function NotificationBell() {
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/events?limit=30`);
+      const res = await apiFetch("/api/events?limit=30");
       const data = await res.json();
       const evts: Event[] = data.events ?? [];
       setEvents(evts);
@@ -77,7 +77,7 @@ export function NotificationBell() {
 
   const clearAll = async () => {
     try {
-      await fetch(`${API}/api/events/clear`, { method: "POST" });
+      await apiFetch("/api/events/clear", { method: "POST" });
       setEvents([]);
       setUnread(0);
     } catch { /* noop */ }

@@ -24,8 +24,8 @@ import {
 } from "lucide-react";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { UpdatedAgo } from "@/components/updated-ago";
+import { apiFetch } from "@/lib/api";
 
-const API = "http://localhost:8521";
 const REFRESH_INTERVAL = 60000;
 
 interface MetricsData {
@@ -74,9 +74,9 @@ export default function MetricsPage() {
   const load = useCallback(async () => {
     try {
       const [metricsRes, prodRes, artRes] = await Promise.all([
-        fetch(`${API}/api/metrics`),
-        fetch(`${API}/api/products`),
-        fetch(`${API}/api/articles`),
+        apiFetch("/api/metrics"),
+        apiFetch("/api/products"),
+        apiFetch("/api/articles"),
       ]);
       const metricsData = await metricsRes.json();
       const prodData = await prodRes.json();

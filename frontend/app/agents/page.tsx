@@ -22,8 +22,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AgentDrawer } from "@/components/agent-drawer";
 import { UpdatedAgo } from "@/components/updated-ago";
+import { apiFetch, apiUrl } from "@/lib/api";
 
-const API = "http://localhost:8521";
 const MAX_LOG_LINES = 200;
 
 interface Agent {
@@ -86,7 +86,7 @@ function LogPanel() {
     if (esRef.current) {
       esRef.current.close();
     }
-    const es = new EventSource(`${API}/api/logs/stream`);
+    const es = new EventSource(apiUrl("/api/logs/stream"));
     esRef.current = es;
     setConnected(false);
     es.onopen = () => setConnected(true);
@@ -209,8 +209,8 @@ export default function AgentsPage() {
   const load = useCallback(() => {
     setLoading(true);
     Promise.all([
-      fetch(`${API}/api/agents`).then((r) => r.json()),
-      fetch(`${API}/api/history?days=7`).then((r) => r.json()).catch(() => null),
+      apiFetch("/api/agents").then((r) => r.json()),
+      apiFetch("/api/history?days=7").then((r) => r.json()).catch(() => null),
     ])
       .then(([d, hist]) => {
         setAgents(d.agents ?? []);
@@ -230,7 +230,7 @@ export default function AgentsPage() {
   const runAgent = async (id: string) => {
     setRunStates((prev) => ({ ...prev, [id]: "running" }));
     try {
-      const res = await fetch(`${API}/api/crons/${id}/run`, { method: "POST" });
+      const res = await apiFetch("/api/crons/${id}/run", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok !== false) {
         setRunStates((prev) => ({ ...prev, [id]: "success" }));
@@ -254,7 +254,7 @@ export default function AgentsPage() {
     const action = isActive ? "disable" : "enable";
     setToggleStates((prev) => ({ ...prev, [id]: "loading" }));
     try {
-      await fetch(`${API}/api/crons/${id}/${action}`, { method: "POST" });
+      await apiFetch("/api/crons/${id}/${action}", { method: "POST" });
     } catch { /* best-effort */ } finally {
       setToggleStates((prev) => ({ ...prev, [id]: "idle" }));
       load();

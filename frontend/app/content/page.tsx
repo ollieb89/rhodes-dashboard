@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Heart, MessageSquare, Eye, ExternalLink, TrendingUp, Search, Download, Pin, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { UpdatedAgo } from "@/components/updated-ago";
 import { usePins } from "@/hooks/use-pins";
+import { apiFetch } from "@/lib/api";
 
-const API = "http://localhost:8521";
 
 interface Article {
   id: number;
@@ -98,7 +98,7 @@ export default function ContentPage() {
   const fetchHN = async (q: string) => {
     setHnLoading(true);
     try {
-      const r = await fetch(`${API}/api/hn?query=${encodeURIComponent(q)}`);
+      const r = await apiFetch("/api/hn?query=${encodeURIComponent(q)}");
       const d = await r.json();
       setHnPosts(d.posts ?? []);
     } catch {
@@ -112,7 +112,7 @@ export default function ContentPage() {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const [artData] = await Promise.all([
-        fetch(`${API}/api/articles`).then((r) => r.json()),
+        apiFetch("/api/articles").then((r) => r.json()),
       ]);
       setArticles((artData.articles ?? []).sort((a: Article, b: Article) => (b.page_views_count ?? 0) - (a.page_views_count ?? 0)));
       setFetchedAt(new Date());
@@ -124,7 +124,7 @@ export default function ContentPage() {
 
   useEffect(() => {
     loadArticles();
-    fetch(`${API}/api/hn?query=${encodeURIComponent(hnQuery)}`)
+    apiFetch("/api/hn?query=${encodeURIComponent(hnQuery)}")
       .then((r) => r.json())
       .then((d) => setHnPosts(d.posts ?? []))
       .catch(() => {});
@@ -136,9 +136,10 @@ export default function ContentPage() {
     fetchHN(hnInput);
   };
 
-  const sortedArticles = [...articles.filter((a) => isArticlePinned(String(a.id))), ...articles.filter((a) => !isArticlePinned(String(a.id)))];
-  const published = sortedArticles.filter((a) => a.published);
-  const drafts = sortedArticles.filter((a) => !a.published);
+  const { sortedArticles, published, drafts } = useMemo(() => {
+    const sorted = [...articles.filter((a) => isArticlePinned(String(a.id))), ...articles.filter((a) => !isArticlePinned(String(a.id)))];
+    return { sortedArticles: sorted, published: sorted.filter((a) => a.published), drafts: sorted.filter((a) => !a.published) };
+  }, [articles, isArticlePinned]);
   const totalViews = articles.reduce(
     (s, a) => s + (a.page_views_count ?? 0),
     0

@@ -8,8 +8,8 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { apiFetch } from "@/lib/api";
 
-const API = "http://localhost:8521";
 
 interface RunEntry {
   ts: string;
@@ -83,7 +83,7 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
     setLoading(true);
     setDetails(null);
     setRunMsg("");
-    fetch(`${API}/api/crons/${agentId}/details`)
+    apiFetch("/api/crons/${agentId}/details")
       .then((r) => r.json())
       .then((d) => setDetails(d))
       .catch(() => setDetails({ error: "Failed to load" } as AgentDetails))
@@ -109,7 +109,7 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
     setRunState("loading");
     setRunMsg("");
     try {
-      const res = await fetch(`${API}/api/crons/${agentId}/run`, { method: "POST" });
+      const res = await apiFetch("/api/crons/${agentId}/run", { method: "POST" });
       const d = await res.json().catch(() => ({}));
       setRunMsg(d.ok !== false ? (d.output ?? "Started") : (d.error ?? "Error"));
       setRunState("done");
@@ -127,8 +127,8 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
     const action = isActive ? "disable" : "enable";
     setToggleState("loading");
     try {
-      await fetch(`${API}/api/crons/${agentId}/${action}`, { method: "POST" });
-      const d = await fetch(`${API}/api/crons/${agentId}/details`).then((r) => r.json());
+      await apiFetch("/api/crons/${agentId}/${action}", { method: "POST" });
+      const d = await apiFetch("/api/crons/${agentId}/details").then((r) => r.json());
       setDetails(d);
       onAction?.();
     } catch { /* noop */ } finally {

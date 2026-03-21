@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { NotificationBell } from "@/components/notification-panel";
+import { apiFetch } from "@/lib/api";
 
-const API = "http://localhost:8521";
 const POLL_INTERVAL = 30_000;
 const SLOW_THRESHOLD = 3000;
 
@@ -33,7 +33,7 @@ export function HealthBar() {
   const check = async () => {
     const start = Date.now();
     try {
-      const res = await fetch(`${API}/api/overview`, { cache: "no-store" });
+      const res = await apiFetch("/api/overview", { cache: "no-store" });
       const elapsed = Date.now() - start;
       if (!res.ok) {
         setStatus("offline");

@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { UpdatedAgo } from "@/components/updated-ago";
+import { apiFetch } from "@/lib/api";
 
-const API = "http://localhost:8521";
 
 interface Incident {
   id: string;
@@ -57,7 +57,7 @@ export default function IncidentsPage() {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const res = await fetch(`${API}/api/incidents`);
+      const res = await apiFetch("/api/incidents");
       const data = await res.json();
       setIncidents(data.incidents ?? []);
       setCounts(data.counts ?? null);

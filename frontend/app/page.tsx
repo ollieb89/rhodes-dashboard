@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { UpdatedAgo } from "@/components/updated-ago";
+import { apiFetch } from "@/lib/api";
 
-const API = "http://localhost:8521";
 const REFRESH_INTERVAL = 30000; // 30 seconds
 
 interface ActivityItem {
@@ -99,12 +99,12 @@ export default function OverviewPage() {
     if (isRefresh) setRefreshing(true);
     try {
       const [ovRes, prodRes, agentsRes, histRes, profRes, actRes] = await Promise.all([
-        fetch(`${API}/api/overview`),
-        fetch(`${API}/api/products`),
-        fetch(`${API}/api/agents`),
-        fetch(`${API}/api/history?days=7`).catch(() => null),
-        fetch(`${API}/api/github/profile`).catch(() => null),
-        fetch(`${API}/api/activity?limit=20`).catch(() => null),
+        apiFetch("/api/overview"),
+        apiFetch("/api/products"),
+        apiFetch("/api/agents"),
+        apiFetch("/api/history?days=7").catch(() => null),
+        apiFetch("/api/github/profile").catch(() => null),
+        apiFetch("/api/activity?limit=20").catch(() => null),
       ]);
       const ov = await ovRes.json();
       if (profRes) { const profData = await profRes.json(); setProfile(profData); }

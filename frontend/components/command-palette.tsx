@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Package, FileText, Bot, ExternalLink, X } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
-const API = "http://localhost:8521";
 
 interface Repo {
   name: string;
@@ -40,9 +40,9 @@ let globalCache: CacheData | null = null;
 async function loadCache(): Promise<CacheData> {
   if (globalCache) return globalCache;
   const [rRes, aRes, agRes] = await Promise.allSettled([
-    fetch(`${API}/api/products`).then((r) => r.json()),
-    fetch(`${API}/api/articles`).then((r) => r.json()),
-    fetch(`${API}/api/agents`).then((r) => r.json()),
+    apiFetch("/api/products").then((r) => r.json()),
+    apiFetch("/api/articles").then((r) => r.json()),
+    apiFetch("/api/agents").then((r) => r.json()),
   ]);
   const repos: Repo[] =
     rRes.status === "fulfilled" ? (rRes.value.repos ?? []) : [];
