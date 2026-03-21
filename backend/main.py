@@ -945,3 +945,128 @@ async def get_activity(limit: int = Query(default=20, le=50)):
             seen.add(item["id"])
             unique.append(item)
     return {"items": unique[:limit]}
+
+
+# ─── DASH-033: Incidents ──────────────────────────────────────────────────────
+
+@app.get("/api/incidents")
+async def get_incidents():
+    """Surface failures and warnings from cron agents and CI runs."""
+    incidents = []
+
+    # 1. Failed/paused cron agents
+    try:
+        agents_data = await get_agents()
+        for agent in agents_data.get("agents", []):
+            status = (agent.get("status") or "").lower()
+            name = agent.get("name") or agent.get("id", "")
+            agent_id = agent.get("id", "")
+            if status == "error":
+                incidents.append({
+                    "id": f"cron-error-{agent_id}",
+                    "source": "cron",
+                    "severity": "critical",
+                    "title": f"Cron job failed: {name}",
+                    "text": f"Agent {name} last run ended with error status.",
+                    "timestamp": agent.get("last_run"),
+                    "url": None,
+                })
+            elif status == "paused":
+                incidents.append({
+                    "id": f"cron-paused-{agent_id}",
+                    "source": "cron",
+                    "severity": "warning",
+                    "title": f"Cron job paused: {name}",
+                    "text": f"Agent {name} is currently disabled.",
+                    "timestamp": agent.get("last_run"),
+                    "url": None,
+                })
+    except Exception:
+        pass
+
+    # 2. Failed CI runs
+    try:
+        ci_data = await get_ci()
+        for repo_name, run in ci_data.get("runs", {}).items():
+            conclusion = (run.get("conclusion") or "").lower()
+            status = (run.get("status") or "").lower()
+            if conclusion == "failure":
+                incidents.append({
+                    "id": f"ci-fail-{repo_name}",
+                    "source": "ci",
+                    "severity": "critical",
+                    "title": f"CI failing: {repo_name}",
+                    "text": f"Latest run '{run.get('name', '')}' on {run.get('branch', 'unknown')} failed.",
+                    "timestamp": None,
+                    "url": run.get("url"),
+                })
+            elif conclusion == "cancelled":
+                incidents.append({
+                    "id": f"ci-cancel-{repo_name}",
+                    "source": "ci",
+                    "severity": "warning",
+                    "title": f"CI cancelled: {repo_name}",
+                    "text": f"Latest run on {run.get('branch', 'unknown')} was cancelled.",
+                    "timestamp": None,
+                    "url": run.get("url"),
+                })
+    except Exception:
+        pass
+
+    # 3. Recent cron error runs from JSONL
+    try:
+        if os.path.isdir(CRON_RUNS_DIR):
+            job_errors: dict[str, dict] = {}
+            for fpath in glob.glob(os.path.join(CRON_RUNS_DIR, "*.jsonl")):
+                try:
+                    lines = open(fpath).readlines()
+                    for line in reversed(lines[-5:]):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            e = json.loads(line)
+                            if e.get("action") == "finished" and e.get("status") == "error":
+                                job_id = e.get("jobId", "")
+                                if job_id not in job_errors:
+                                    job_errors[job_id] = e
+                        except json.JSONDecodeError:
+                            pass
+                except OSError:
+                    pass
+            for job_id, entry in job_errors.items():
+                short_id = job_id[:8]
+                err = entry.get("error", "")
+                ts_ms = entry.get("ts", 0)
+                ts_iso = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).isoformat() if ts_ms else None
+                iid = f"cron-run-err-{job_id}"
+                # Skip if already added from agents list
+                if not any(i["id"] == f"cron-error-{job_id}" for i in incidents):
+                    incidents.append({
+                        "id": iid,
+                        "source": "cron",
+                        "severity": "critical",
+                        "title": f"Run error: {short_id}",
+                        "text": err or "Job execution failed",
+                        "timestamp": ts_iso,
+                        "url": None,
+                    })
+    except Exception:
+        pass
+
+    # Sort: critical first, then by timestamp desc
+    def sort_key(i):
+        sev = {"critical": 0, "warning": 1, "info": 2}.get(i.get("severity", "info"), 2)
+        ts = i.get("timestamp") or ""
+        return (sev, "" if not ts else ts)
+
+    incidents.sort(key=lambda i: ({"critical": 0, "warning": 1, "info": 2}.get(i.get("severity", "info"), 2), -(0 if not i.get("timestamp") else int(datetime.fromisoformat(i["timestamp"].replace("Z", "+00:00")).timestamp() * 1000 if i.get("timestamp") else 0))))
+
+    counts = {
+        "critical": sum(1 for i in incidents if i.get("severity") == "critical"),
+        "warning": sum(1 for i in incidents if i.get("severity") == "warning"),
+        "info": sum(1 for i in incidents if i.get("severity") == "info"),
+        "total": len(incidents),
+    }
+
+    return {"incidents": incidents, "counts": counts}

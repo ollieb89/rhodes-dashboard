@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 // g c → Content (/content)
 // g a → Agents (/agents)
 // g m → Metrics (/metrics)
+// g i → Incidents (/incidents)
 
 const SHORTCUTS: Record<string, string> = {
   o: "/",
@@ -16,6 +17,7 @@ const SHORTCUTS: Record<string, string> = {
   c: "/content",
   a: "/agents",
   m: "/metrics",
+  i: "/incidents",
 };
 
 export function useKeyboardNav() {

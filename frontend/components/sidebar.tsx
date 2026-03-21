@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import {
   LayoutDashboard, Package, FileText, Bot, BarChart3,
-  Zap, Menu, X, Sun, Moon,
+  Zap, Menu, X, Sun, Moon, AlertTriangle,
 } from "lucide-react";
 
 const nav = [
@@ -16,6 +16,7 @@ const nav = [
   { href: "/content", label: "Content", icon: FileText, shortcut: "c" },
   { href: "/agents", label: "Agents", icon: Bot, shortcut: "a" },
   { href: "/metrics", label: "Metrics", icon: BarChart3, shortcut: "m" },
+  { href: "/incidents", label: "Incidents", icon: AlertTriangle, shortcut: "i" },
 ];
 
 export function Sidebar() {
