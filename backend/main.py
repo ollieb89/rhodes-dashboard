@@ -6,7 +6,8 @@ import subprocess
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Rhodes Command Center API")
@@ -18,6 +19,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Optional API key protection ──────────────────────────────────────────────
+
+@app.middleware("http")
+async def api_key_middleware(request: Request, call_next):
+    api_key = os.environ.get("DASHBOARD_API_KEY", "")
+    if not api_key:
+        # No key configured — open access
+        return await call_next(request)
+    # Skip health endpoint
+    if request.url.path in ("/health", "/api/health", "/"):
+        return await call_next(request)
+    # Only protect /api/* routes
+    if request.url.path.startswith("/api/"):
+        provided = request.headers.get("x-dashboard-key", "")
+        if provided != api_key:
+            return JSONResponse(
+                status_code=401,
+                content={"ok": False, "error": "unauthorized"},
+            )
+    return await call_next(request)
+
+
 
 NODE_BIN = os.path.expanduser("~/.nvm/versions/node/v22.21.1/bin")
 ENV = {**os.environ, "PATH": f"{NODE_BIN}:{os.environ.get('PATH', '')}"}
