@@ -25,6 +25,27 @@ Backend   →  http://localhost:8521   (FastAPI + Python)
 - **[gh](https://cli.github.com/)** — GitHub CLI, authenticated (`gh auth login`)
 - **openclaw** — AI cron agent runner (optional; agents page degrades gracefully without it)
 
+
+## Docker / containerized setup
+
+```bash
+# 1. Copy and configure env
+cp .env.example .env
+# Edit .env — add DEVTO_API_KEY at minimum
+
+# 2. Build and start
+docker compose up --build
+
+# Frontend: http://localhost:3489
+# Backend:  http://localhost:8521
+```
+
+### Notes
+- `gh` CLI auth is passed via `~/.config/gh` volume mount (read-only)
+- `openclaw` data is passed via `~/.openclaw` volume mount (read-only)
+- `DASHBOARD_API_KEY` in `.env` enables API key protection on backend
+- Frontend is built with `output: "standalone"` for minimal images
+
 ## Quick start
 
 ```bash

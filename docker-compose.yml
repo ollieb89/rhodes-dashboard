@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8521:8521"
+    env_file:
+      - .env
+    environment:
+      - DEVTO_API_KEY=${DEVTO_API_KEY:-}
+      - DASHBOARD_API_KEY=${DASHBOARD_API_KEY:-}
+    volumes:
+      # Mount openclaw config for cron/agents data (host-only tool)
+      - ${HOME}/.openclaw:/root/.openclaw:ro
+      - ${HOME}/.config/gh:/root/.config/gh:ro
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8521
+        NEXT_PUBLIC_DASHBOARD_API_KEY: ${DASHBOARD_API_KEY:-}
+    ports:
+      - "3489:3489"
+    depends_on:
+      - backend
+    restart: unless-stopped
