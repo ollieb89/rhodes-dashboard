@@ -563,3 +563,103 @@ async def get_ci():
     _ci_cache["data"] = data
     _ci_cache["expires"] = now + 60.0
     return data
+
+
+# ─── DASH-023: Events / notifications ────────────────────────────────────────
+
+EVENTS_SOURCES = [
+    os.path.expanduser("~/.openclaw/logs/config-audit.jsonl"),
+]
+CRON_RUNS_DIR_EVENTS = os.path.expanduser("~/.openclaw/cron/runs")
+
+
+def _load_events(limit: int = 20) -> list[dict]:
+    """Aggregate events from config-audit + cron run completions."""
+    events = []
+
+    # 1. Config-audit events
+    for fpath in EVENTS_SOURCES:
+        if not os.path.isfile(fpath):
+            continue
+        try:
+            with open(fpath) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                        ts_str = entry.get("ts", "")
+                        try:
+                            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp() * 1000
+                        except Exception:
+                            ts = 0
+                        events.append({
+                            "id": f"cfg-{int(ts)}-{entry.get('event','')}",
+                            "timestamp": ts_str or "",
+                            "type": "config",
+                            "text": entry.get("event", "config.change"),
+                            "level": "info",
+                        })
+                    except json.JSONDecodeError:
+                        pass
+        except OSError:
+            pass
+
+    # 2. Cron run completions (status=ok or error)
+    if os.path.isdir(CRON_RUNS_DIR_EVENTS):
+        for fpath in glob.glob(os.path.join(CRON_RUNS_DIR_EVENTS, "*.jsonl")):
+            try:
+                with open(fpath) as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            entry = json.loads(line)
+                            if entry.get("action") != "finished":
+                                continue
+                            ts_ms = entry.get("ts", 0)
+                            ts_str = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).isoformat()
+                            status = entry.get("status", "")
+                            error = entry.get("error", "")
+                            summary = entry.get("summary", "")
+                            job_id = entry.get("jobId", "")[:8]
+                            level = "error" if status == "error" else "info"
+                            text = f"cron/{job_id}: {error}" if error else f"cron/{job_id}: {summary[:80]}" if summary else f"cron/{job_id}: finished ok"
+                            events.append({
+                                "id": f"cron-{ts_ms}-{job_id}",
+                                "timestamp": ts_str,
+                                "type": "cron",
+                                "text": text,
+                                "level": level,
+                            })
+                        except json.JSONDecodeError:
+                            pass
+            except OSError:
+                pass
+
+    # Sort descending by timestamp string (ISO sortable), return latest N
+    events.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
+    return events[:limit]
+
+
+@app.get("/api/events")
+async def get_events(limit: int = Query(default=20, le=100)):
+    events = await asyncio.to_thread(_load_events, limit)
+    return {"events": events}
+
+
+@app.post("/api/events/clear")
+async def clear_events():
+    """Truncates the config-audit log (soft clear — events will re-accumulate)."""
+    cleared = []
+    for fpath in EVENTS_SOURCES:
+        if os.path.isfile(fpath):
+            try:
+                with open(fpath, "w") as f:
+                    pass  # truncate
+                cleared.append(fpath)
+            except OSError as e:
+                return {"ok": False, "error": str(e)}
+    return {"ok": True, "cleared": cleared}

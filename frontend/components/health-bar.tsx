@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { NotificationBell } from "@/components/notification-panel";
 
 const API = "http://localhost:8521";
 const POLL_INTERVAL = 30_000;
@@ -57,10 +58,11 @@ export function HealthBar() {
 
   return (
     <div
-      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 py-1.5 border-b text-xs ${bar}`}
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center gap-2 py-1.5 border-b text-xs px-4 ${bar}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${status === "ok" ? "" : "animate-pulse"} ${dot}`} />
-      <span className="text-zinc-300">{text}</span>
+      <span className="text-zinc-300 flex-1 text-center">{text}</span>
+      <NotificationBell />
     </div>
   );
 }
