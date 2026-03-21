@@ -13,12 +13,14 @@ import {
   Pause,
   Trash2,
   Terminal,
+  Info,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { AgentDrawer } from "@/components/agent-drawer";
 import { UpdatedAgo } from "@/components/updated-ago";
 
 const API = "http://localhost:8521";
@@ -201,6 +203,7 @@ export default function AgentsPage() {
   const [runStates, setRunStates] = useState<Record<string, RunState>>({});
   const [runMessages, setRunMessages] = useState<Record<string, RunMsg>>({});
   const [toggleStates, setToggleStates] = useState<Record<string, ToggleState>>({});
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [history, setHistory] = useState<HistorySnapshot[]>([]);
 
   const load = useCallback(() => {
@@ -348,6 +351,11 @@ export default function AgentsPage() {
         <LogPanel />
         <p className="text-xs text-zinc-600">Last refreshed: {new Date(lastRefresh).toLocaleTimeString()} · auto-refreshes every 30 s</p>
       </div>
+      <AgentDrawer
+        agentId={selectedAgentId}
+        onClose={() => setSelectedAgentId(null)}
+        onAction={load}
+      />
     </ErrorBoundary>
   );
 }

@@ -782,3 +782,76 @@ async def get_repo_readme(repo: str):
         return result
     except Exception as e:
         return {"content": "", "error": str(e)}
+
+
+# ─── DASH-031: Agent details ──────────────────────────────────────────────────
+
+@app.get("/api/crons/{id}/details")
+async def get_cron_details(id: str):
+    """Return rich metadata for a single cron job including recent run history."""
+    try:
+        output = await asyncio.to_thread(run, ["openclaw", "cron", "list", "--json"])
+        data = json.loads(output)
+        jobs = data.get("jobs", [])
+        job = next((j for j in jobs if j.get("id") == id), None)
+        if not job:
+            return {"error": f"Agent {id} not found"}
+
+        state = job.get("state", {})
+        status = state.get("lastRunStatus", "unknown")
+        if state.get("runningAtMs"):
+            status = "running"
+        elif not job.get("enabled"):
+            status = "paused"
+
+        def ms_to_iso(ms):
+            if not ms:
+                return None
+            return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).isoformat()
+
+        # Load recent run history from JSONL
+        runs_dir = os.path.expanduser("~/.openclaw/cron/runs")
+        run_file = os.path.join(runs_dir, f"{id}.jsonl")
+        recent_runs = []
+        if os.path.isfile(run_file):
+            try:
+                lines = open(run_file).readlines()
+                for line in reversed(lines[-20:]):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                        recent_runs.append({
+                            "ts": ms_to_iso(entry.get("ts", 0)),
+                            "status": entry.get("status", ""),
+                            "action": entry.get("action", ""),
+                            "duration_ms": entry.get("durationMs"),
+                            "error": entry.get("error", ""),
+                            "summary": (entry.get("summary") or "")[:300],
+                            "model": entry.get("model", ""),
+                        })
+                    except json.JSONDecodeError:
+                        pass
+            except OSError:
+                pass
+
+        return {
+            "id": id,
+            "name": job.get("name", ""),
+            "schedule": job.get("schedule", {}).get("expr", "manual"),
+            "status": status,
+            "last_run": ms_to_iso(state.get("lastRunAtMs")),
+            "next_run": ms_to_iso(state.get("nextRunAtMs")),
+            "enabled": job.get("enabled", True),
+            "agent_id": job.get("agentId", ""),
+            "description": (job.get("payload") or {}).get("message", "")[:200],
+            "model": (job.get("payload") or {}).get("model", ""),
+            "delivery_channel": (job.get("delivery") or {}).get("channel", ""),
+            "recent_runs": recent_runs,
+            "raw": job,
+        }
+    except FileNotFoundError:
+        return {"error": "openclaw not found in PATH"}
+    except Exception as e:
+        return {"error": str(e)}
