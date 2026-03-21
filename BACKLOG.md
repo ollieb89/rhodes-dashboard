@@ -197,7 +197,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-013** · M · Add HN mentions section to Content page
+- [x] **DASH-013** · M · Add HN mentions section to Content page
 
   Add a "HN Mentions" section to `frontend/app/content/page.tsx` below the articles list. Call `/api/hn?query=<term>` (defaulting to "workflow-guardian") and display:
   - Post title (linked), points, comment count, posted date
