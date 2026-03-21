@@ -36,6 +36,19 @@ interface Agent {
   next_run: string | null;
 }
 
+
+interface HistorySnapshot {
+  timestamp: string;
+  total_repos: number;
+  total_stars: number;
+  total_articles: number;
+  total_agents: number;
+}
+
+function toSparkData(history: HistorySnapshot[], key: keyof HistorySnapshot) {
+  return history.map((h) => ({ value: h[key] as number }));
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -50,6 +63,7 @@ export default function OverviewPage() {
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [repos, setRepos] = useState<Repo[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [history, setHistory] = useState<HistorySnapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,10 +71,11 @@ export default function OverviewPage() {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [ovRes, prodRes, agentsRes] = await Promise.all([
+      const [ovRes, prodRes, agentsRes, histRes] = await Promise.all([
         fetch(`${API}/api/overview`),
         fetch(`${API}/api/products`),
         fetch(`${API}/api/agents`),
+        fetch(`${API}/api/history?days=7`).catch(() => null),
       ]);
       const ov = await ovRes.json();
       const prod = await prodRes.json();
@@ -75,6 +90,10 @@ export default function OverviewPage() {
           .slice(0, 5)
       );
       setAgents(ag.agents ?? []);
+      if (histRes && histRes.ok) {
+        const histData = await histRes.json();
+        setHistory(histData.snapshots ?? histData ?? []);
+      }
       setError(null);
     } catch {
       setError("Failed to connect to backend at :8521");
@@ -89,6 +108,10 @@ export default function OverviewPage() {
     const interval = setInterval(() => load(true), REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [load]);
+
+  const reposSpark = toSparkData(history, "total_repos");
+  const articlesSpark = toSparkData(history, "total_articles");
+  const agentsSpark = toSparkData(history, "total_agents");
 
   if (error && loading) {
     return (
@@ -130,18 +153,24 @@ export default function OverviewPage() {
               value={stats?.total_repos ?? 0}
               icon={Package}
               accent="text-blue-400"
+              sparkData={reposSpark}
+              sparkColor="#60a5fa"
             />
             <StatCard
               label="Articles"
               value={stats?.total_articles ?? 0}
               icon={FileText}
               accent="text-green-400"
+              sparkData={articlesSpark}
+              sparkColor="#4ade80"
             />
             <StatCard
               label="Cron Agents"
               value={stats?.total_agents ?? 0}
               icon={Bot}
               accent="text-violet-400"
+              sparkData={agentsSpark}
+              sparkColor="#a78bfa"
             />
             <StatCard
               label="Active"
