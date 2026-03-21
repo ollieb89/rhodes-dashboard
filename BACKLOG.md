@@ -653,7 +653,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P1 — Important
 
-- [ ] **DASH-036** · M · Simple access control for backend API
+- [x] **DASH-036** · M · Simple access control for backend API
 
   Add lightweight protection so the dashboard backend is not fully open by default.
 
