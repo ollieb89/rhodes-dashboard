@@ -532,3 +532,117 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
   - Renders raw markdown text in monospace (no full markdown parser needed)
   - Card expands smoothly, collapses back cleanly
 
+
+---
+
+## Batch 4 — Operations & Observability
+
+### P1 — Important
+
+- [ ] **DASH-031** · M · Agent details drawer with richer run metadata
+
+  Expand the Agents page so each agent has a details drawer/panel with deeper metadata.
+
+  **Backend (`backend/main.py`):**
+  - Add `GET /api/crons/{id}` returning `{ id, name, schedule, status, last_run, next_run, command?, description?, raw }`
+  - Reuse existing cron parsing where possible; `raw` should preserve the original source object/text for debugging
+
+  **Frontend (`frontend/app/agents/page.tsx`):**
+  - Add a "Details" action per agent row
+  - Opens a right-side drawer showing: name, id, schedule, status, last run, next run, raw payload, and most recent run output if available
+  - Include quick actions inside drawer: Run now / Enable / Disable
+
+  **Acceptance criteria:**
+  - Drawer opens/closes cleanly
+  - Details are fetched lazily per agent
+  - No full page refresh required after quick actions
+
+---
+
+- [ ] **DASH-032** · M · Recent activity feed on Overview
+
+  Add a unified recent activity feed to the overview page combining cron events, repo updates, and article publishes.
+
+  **Backend (`backend/main.py`):**
+  - Add `GET /api/activity?limit=20`
+  - Merge activity from:
+    - `/api/events` notifications/events
+    - recent article publishes from `/api/articles`
+    - latest GitHub repo creations/updates from `/api/products`
+  - Return normalized items: `{ id, type, title, text, timestamp, url? }`
+
+  **Frontend (`frontend/app/page.tsx`):**
+  - Add an "Activity" card below the top stat cards
+  - Show a vertical list grouped by recency with icon per type (event/article/repo)
+  - Link out where URL exists
+
+  **Acceptance criteria:**
+  - Activity feed renders mixed item types consistently
+  - Sorted newest-first
+  - Graceful empty state when no data
+
+---
+
+- [ ] **DASH-033** · M · Error/incident tracker panel
+
+  Surface backend failures and failing CI/cron states in a dedicated incident view.
+
+  **Backend (`backend/main.py`):**
+  - Add `GET /api/incidents`
+  - Build incidents from:
+    - offline/errored API fetch states
+    - failed GitHub Actions runs from `/api/ci`
+    - failed/paused cron agents from `/api/agents`
+  - Return `{ incidents: Array<{ id, source, severity, title, text, timestamp?, url? }> }`
+
+  **Frontend:**
+  - New page `frontend/app/incidents/page.tsx`
+  - Add sidebar nav item: Incidents
+  - Severity badges: critical / warning / info
+  - Summary counts at top
+
+  **Acceptance criteria:**
+  - Incidents page shows actionable issues only
+  - Severity styling is obvious
+  - No incidents => explicit healthy/clear state
+
+---
+
+### P2 — Nice-to-have
+
+- [ ] **DASH-034** · S · Manual refresh controls on major pages
+
+  Add explicit refresh buttons to Overview, Products, Content, Agents, and Metrics pages.
+
+  **Frontend only:**
+  - Add a small refresh button near each page header
+  - Re-trigger the current page's fetch logic without a full navigation reload
+  - Show spinning icon while refreshing
+  - If using cached backend data, append `?refresh=1` to bypass frontend memoization only; backend cache can remain unless explicitly bypassed later
+
+  **Acceptance criteria:**
+  - User can force a visible refresh from each page
+  - Button shows loading state during fetch
+  - Existing auto-refresh behaviour remains intact
+
+---
+
+- [ ] **DASH-035** · S · Shareable dashboard snapshot export
+
+  Add a one-click dashboard snapshot export for the Overview page.
+
+  **Frontend only:**
+  - Add "Export Snapshot" button on Overview
+  - Generate a markdown summary from current overview data:
+    - totals
+    - top repo
+    - top article
+    - active agents count
+    - latest activity items (up to 5)
+  - Download as `dashboard-snapshot-YYYY-MM-DD.md`
+
+  **Acceptance criteria:**
+  - File downloads in browser
+  - Content reflects current visible overview state
+  - Works without backend changes
+
