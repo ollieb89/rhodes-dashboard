@@ -461,7 +461,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-027** · M · `/api/github/profile` endpoint + profile card on Overview
+- [x] **DASH-027** · M · `/api/github/profile` endpoint + profile card on Overview
 
   Add a GitHub profile card to the top of `frontend/app/page.tsx` showing Ollie's GitHub stats.
 
