@@ -310,3 +310,127 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 - **DASH-005** · M · Build out the Metrics page with real data
 - **DASH-006** · M · Add cron health card to Overview page
 - **DASH-007** · M · Improve the Agents page with a proper list and run button
+
+---
+
+## Batch 2 — New Features
+
+### P1 — Important
+
+- [ ] **DASH-021** · L · Live log streaming on Agents page
+
+  Add a real-time log tail to `frontend/app/agents/page.tsx`. Use FastAPI's `StreamingResponse` with Server-Sent Events (SSE) — no WebSocket dependency needed.
+
+  **Backend (`backend/main.py`):**
+  - Add `GET /api/logs/stream` — runs `openclaw cron logs --follow` (or `tail -f` of the openclaw log file) as a subprocess, streams each line as `data: <line>\n\n` SSE events
+  - Add `GET /api/logs/recent?lines=100` — returns last N lines as `{ lines: string[] }`
+  - Cap stream at 500 lines then reconnect automatically (prevent memory leak)
+
+  **Frontend:**
+  - Add a "Logs" collapsible panel at the bottom of the Agents page
+  - Use `EventSource` to consume the SSE stream
+  - Render lines in a dark `<pre>` terminal box, auto-scrolling to bottom
+  - Add a "Pause / Resume" toggle and a "Clear" button
+  - Limit display buffer to 200 lines (drop oldest)
+
+  **Acceptance criteria:**
+  - SSE endpoint streams log lines in real time
+  - Frontend connects on mount, reconnects on disconnect
+  - Pause/resume works without closing the connection
+  - Graceful fallback if log file not found (show "No log source available")
+
+---
+
+- [ ] **DASH-022** · M · GitHub Actions CI status on Products page
+
+  Show the latest CI run status per repo on `frontend/app/products/page.tsx`.
+
+  **Backend (`backend/main.py`):**
+  - Add `GET /api/ci` — calls `gh run list --json status,conclusion,name,headBranch,createdAt,url --limit 1` per repo (use `asyncio.gather` across repos)
+  - Return `{ runs: { [repoName]: { status, conclusion, name, branch, url } } }`
+  - Cache result for 60 s to avoid hammering GitHub API
+
+  **Frontend:**
+  - On each repo card, add a small CI badge below the language badge
+  - Badge colours: green = success, red = failure, amber = in_progress/queued, grey = no runs
+  - Badge shows: ✓ / ✗ / ⟳ icon + conclusion text
+  - Clicking badge opens the run URL
+
+  **Acceptance criteria:**
+  - CI status visible on repo cards
+  - Badge colour matches run conclusion
+  - Missing CI data (new repos) shows nothing, not an error
+
+---
+
+- [ ] **DASH-023** · M · Notifications / events panel
+
+  Surface openclaw system events in the dashboard as a slide-in notification panel.
+
+  **Backend (`backend/main.py`):**
+  - Add `GET /api/events?limit=20` — reads the openclaw event log (JSON lines from `openclaw system events` or from `~/.openclaw/logs/events.jsonl`)
+  - Return `{ events: Array<{ id, timestamp, type, text, level }> }`
+  - Add `POST /api/events/clear` — truncates the events file
+
+  **Frontend:**
+  - Add a bell icon button to the top-right of the health bar (or sidebar footer)
+  - Clicking opens a slide-in panel from the right (fixed, `w-80`)
+  - Panel shows events as a scrollable list: timestamp, level badge, message text
+  - Unread count badge on the bell icon (count since last open, persisted in `localStorage`)
+  - "Clear all" button at top of panel
+
+  **Acceptance criteria:**
+  - Panel opens/closes with bell button and ESC key
+  - Events load from backend with loading skeleton
+  - Unread count resets on open
+  - Empty state shown when no events
+
+---
+
+### P2 — Nice-to-have
+
+- [ ] **DASH-024** · S · Dark/light theme toggle
+
+  Add a theme toggle to the sidebar footer. Use `next-themes` for theme management (install via `npm install next-themes`).
+
+  **Setup:**
+  - Wrap `frontend/app/layout.tsx` body in `<ThemeProvider attribute="class" defaultTheme="dark">`
+  - Remove hardcoded `dark` class from `<html>`
+
+  **Sidebar toggle:**
+  - Add a sun/moon icon button in the sidebar footer next to the "ollieb89 · local" text
+  - Use `useTheme()` from `next-themes` to toggle
+
+  **CSS:**
+  - Audit `globals.css` and component classes — most are already Tailwind dark-mode-compatible since everything uses `bg-zinc-*` and `text-zinc-*`
+  - Light theme target: `bg-zinc-100` body, `bg-white` cards, `text-zinc-900` text
+
+  **Acceptance criteria:**
+  - Toggle switches between dark and light
+  - Preference persisted in `localStorage` via next-themes
+  - No flash of wrong theme on load (use `suppressHydrationWarning` on `<html>`)
+
+---
+
+- [ ] **DASH-025** · S · Pin/favourite repos and articles
+
+  Allow Ollie to pin repos and articles to the top of their respective pages. Pins persist in `localStorage`.
+
+  **Products page:**
+  - Add a star/pin button to each repo card (top-right corner, replaces the external link icon row)
+  - Pinned repos always appear first in the sorted list, with a subtle pin indicator
+
+  **Content page:**
+  - Add a pin button to each article row
+  - Pinned articles appear at the top of the dev.to tab
+
+  **Implementation:**
+  - Custom hook `frontend/hooks/use-pins.ts` — `usePins(namespace: string)` returns `{ pins: Set<string>, toggle(id), isPinned(id) }`
+  - Store in `localStorage` as `pins:<namespace>` JSON array
+  - No backend changes needed
+
+  **Acceptance criteria:**
+  - Pins survive page refresh
+  - Pinned items appear first, visually distinguished (e.g. violet pin icon)
+  - Unpinning restores normal sort order
+
