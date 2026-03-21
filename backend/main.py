@@ -9,6 +9,11 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse as SSEStreamingResponse
+
+from sse import SSEManager
+
+sse_manager = SSEManager()
 
 app = FastAPI(title="Rhodes Command Center API")
 
@@ -28,8 +33,8 @@ async def api_key_middleware(request: Request, call_next):
     if not api_key:
         # No key configured — open access
         return await call_next(request)
-    # Skip health endpoint
-    if request.url.path in ("/health", "/api/health", "/"):
+    # Skip health and SSE endpoints
+    if request.url.path in ("/health", "/api/health", "/", "/api/events"):
         return await call_next(request)
     # Only protect /api/* routes
     if request.url.path.startswith("/api/"):
@@ -450,6 +455,33 @@ async def _get_total_stars() -> int:
 async def cache_status():
     """Return current live cache keys and their remaining TTL."""
     return {"keys": _cache.status()}
+
+
+
+# ─── DASH-041: Real-time SSE endpoint ────────────────────────────────────────
+
+from sse import sse_manager
+
+@app.get("/api/sse")
+async def sse_events():
+    """SSE endpoint for real-time dashboard updates."""
+    sub_id, queue = sse_manager.subscribe()
+
+    return StreamingResponse(
+        sse_manager.event_stream(sub_id, queue),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.get("/api/sse/status")
+async def sse_status():
+    """Return number of active SSE subscribers."""
+    return {"subscribers": sse_manager.subscriber_count}
 
 @app.get("/health")
 async def health():
@@ -1094,3 +1126,26 @@ async def get_incidents():
     }
 
     return {"incidents": incidents, "counts": counts}
+
+
+# ─── DASH-041: SSE endpoint ───────────────────────────────────────────────────
+
+@app.get("/api/events")
+async def sse_events(request: Request):
+    """Stream real-time events to the client via Server-Sent Events."""
+    from fastapi.responses import StreamingResponse
+
+    async def event_generator():
+        async for message in sse_manager.subscribe():
+            if await request.is_disconnected():
+                break
+            yield message
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

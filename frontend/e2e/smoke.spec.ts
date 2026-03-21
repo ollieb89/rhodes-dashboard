@@ -44,4 +44,35 @@ test.describe("Dashboard smoke tests", () => {
     await expect(page.getByRole("link", { name: "Products" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Agents" })).toBeVisible();
   });
+
+  test("keyboard shortcuts help modal opens with ? and closes with Escape", async ({ page }) => {
+    await page.goto("/");
+
+    await page.keyboard.press("Shift+/");
+    await expect(
+      page.getByRole("dialog", { name: /keyboard shortcuts/i }),
+    ).toBeVisible();
+    await expect(page.getByText("go")).toBeVisible();
+    await expect(page.getByText("gp")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("dialog", { name: /keyboard shortcuts/i }),
+    ).toBeHidden();
+  });
+
+  test("g plus letter navigation ignores typing fields and still navigates globally", async ({ page }) => {
+    await page.goto("/products");
+
+    await page.getByPlaceholder("Search repos...").focus();
+    await page.keyboard.press("g");
+    await page.keyboard.press("m");
+    await expect(page).toHaveURL(/\/products$/);
+
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("g");
+    await page.keyboard.press("m");
+    await expect(page).toHaveURL(/\/metrics$/);
+    await expect(page.getByRole("heading", { name: "Metrics" })).toBeVisible();
+  });
 });
