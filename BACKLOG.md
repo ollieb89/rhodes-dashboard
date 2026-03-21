@@ -539,7 +539,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P1 — Important
 
-- [ ] **DASH-031** · M · Agent details drawer with richer run metadata
+- [x] **DASH-031** · M · Agent details drawer with richer run metadata
 
   Expand the Agents page so each agent has a details drawer/panel with deeper metadata.
 
