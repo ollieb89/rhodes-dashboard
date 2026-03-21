@@ -110,7 +110,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-007** · M · Improve the Agents page with a proper list and run button
+- [x] **DASH-007** · M · Improve the Agents page with a proper list and run button
 
   Rewrite `frontend/app/agents/page.tsx` to:
   - Show all agents from `/api/agents` as a full table/list with columns: Name, Schedule, Status, Last Run, Actions
@@ -309,3 +309,4 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 - **DASH-003** · S · Fix overview page agent "Active" count
 - **DASH-005** · M · Build out the Metrics page with real data
 - **DASH-006** · M · Add cron health card to Overview page
+- **DASH-007** · M · Improve the Agents page with a proper list and run button
