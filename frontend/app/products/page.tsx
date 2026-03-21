@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Star, GitFork, ExternalLink, Package, ArrowUpDown, Download, CheckCircle, XCircle, Loader, Circle, Pin, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Star, GitFork, ExternalLink, Package, ArrowUpDown, Download, CheckCircle, XCircle, Loader, Circle, Pin, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -135,16 +135,28 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [ciLoading, setCiLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("stars");
   const { pins, toggle, isPinned } = usePins("repos");
   const [expandedRepo, setExpandedRepo] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch(`${API}/api/products`).then((r) => r.json()).then((d) => { setRepos(d.repos ?? []); setFetchedAt(new Date()); }).catch(() => setError("Backend unavailable")).finally(() => setLoading(false));
-    fetch(`${API}/api/ci`).then((r) => r.json()).then((d) => setCiRuns(d.runs ?? {})).catch(() => {}).finally(() => setCiLoading(false));
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) { setRefreshing(true); } else { setLoading(true); setCiLoading(true); }
+    const [prodRes, ciRes] = await Promise.allSettled([
+      fetch(`${API}/api/products`).then((r) => r.json()),
+      fetch(`${API}/api/ci`).then((r) => r.json()),
+    ]);
+    if (prodRes.status === "fulfilled") { setRepos(prodRes.value.repos ?? []); setFetchedAt(new Date()); }
+    else setError("Backend unavailable");
+    if (ciRes.status === "fulfilled") setCiRuns(ciRes.value.runs ?? {});
+    setLoading(false);
+    setCiLoading(false);
+    setRefreshing(false);
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const cycleSort = () => { const idx = SORT_ORDER.indexOf(sortKey); setSortKey(SORT_ORDER[(idx + 1) % SORT_ORDER.length]); };
   const filtered = repos.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()) || (r.description ?? "").toLowerCase().includes(search.toLowerCase()));
@@ -169,6 +181,9 @@ export default function ProductsPage() {
               <ArrowUpDown className="w-3.5 h-3.5" /> {SORT_LABELS[sortKey]}
             </Button>
             <input type="text" placeholder="Search repos..." value={search} onChange={(e) => setSearch(e.target.value)} className="bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 text-sm rounded-lg px-3 py-2 outline-none focus:border-violet-500 w-52" />
+            <button onClick={() => load(true)} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors">
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
           </div>
         </div>
         {error && <p className="text-red-400 text-sm">{error}</p>}

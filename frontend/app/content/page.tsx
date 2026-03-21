@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Heart, MessageSquare, Eye, ExternalLink, TrendingUp, Search, Download, Pin } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Heart, MessageSquare, Eye, ExternalLink, TrendingUp, Search, Download, Pin, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -87,6 +87,7 @@ function downloadArticlesCsv(articles: Article[]) {
 export default function ContentPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const { pins: articlePins, toggle: toggleArticle, isPinned: isArticlePinned } = usePins("articles");
   const [hnPosts, setHnPosts] = useState<HNPost[]>([]);
   const [hnQuery, setHnQuery] = useState("workflow-guardian");
@@ -107,16 +108,26 @@ export default function ContentPage() {
     }
   };
 
+  const loadArticles = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    try {
+      const [artData] = await Promise.all([
+        fetch(`${API}/api/articles`).then((r) => r.json()),
+      ]);
+      setArticles((artData.articles ?? []).sort((a: Article, b: Article) => (b.page_views_count ?? 0) - (a.page_views_count ?? 0)));
+      setFetchedAt(new Date());
+    } catch { /* noop */ } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
   useEffect(() => {
-    Promise.all([
-      fetch(`${API}/api/articles`).then((r) => r.json()),
-      fetch(`${API}/api/hn?query=${encodeURIComponent(hnQuery)}`).then((r) => r.json()),
-    ])
-      .then(([artData, hnData]) => {
-        setArticles((artData.articles ?? []).sort((a: Article, b: Article) => (b.page_views_count ?? 0) - (a.page_views_count ?? 0))); setFetchedAt(new Date());
-        setHnPosts(hnData.posts ?? []);
-      })
-      .finally(() => setLoading(false));
+    loadArticles();
+    fetch(`${API}/api/hn?query=${encodeURIComponent(hnQuery)}`)
+      .then((r) => r.json())
+      .then((d) => setHnPosts(d.posts ?? []))
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -145,6 +156,9 @@ export default function ContentPage() {
         <p className="text-sm text-zinc-500 mt-1">
           Dev.to articles &amp; Hacker News activity
           <UpdatedAgo fetchedAt={fetchedAt} className="ml-2" />
+          <button onClick={() => loadArticles(true)} className="ml-auto flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
+            <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
         </p>
         {!loading && articles.length > 0 && (
           <p className="text-xs text-zinc-500 mt-2">

@@ -164,11 +164,20 @@ export default function OverviewPage() {
             {refreshing && <RefreshCw className="w-3 h-3 animate-spin inline-block ml-1" />}
           </p>
         </div>
-        {error && (
-          <Badge variant="outline" className="border-red-900 text-red-400 text-[10px]">
-            Offline
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {error && (
+            <Badge variant="outline" className="border-red-900 text-red-400 text-[10px]">
+              Offline
+            </Badge>
+          )}
+          <button
+            onClick={() => load(true)}
+            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* GitHub Profile Card */}
