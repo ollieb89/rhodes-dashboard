@@ -559,7 +559,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-032** · M · Recent activity feed on Overview
+- [x] **DASH-032** · M · Recent activity feed on Overview
 
   Add a unified recent activity feed to the overview page combining cron events, repo updates, and article publishes.
 
