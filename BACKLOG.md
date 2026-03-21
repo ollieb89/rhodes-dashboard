@@ -79,7 +79,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-005** · M · Build out the Metrics page with real data
+- [x] **DASH-005** · M · Build out the Metrics page with real data
 
   The `frontend/app/metrics/page.tsx` page currently exists but is likely a placeholder. Replace it with a real metrics page that calls `/api/metrics` (from DASH-004) and displays:
   - Four stat cards: Total Stars, Total Forks, Article Views, Article Reactions
@@ -306,3 +306,4 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 *(Implemented tasks move here)*
 - **DASH-001** · S · Fix /api/agents to return structured cron data
+- **DASH-005** · M · Build out the Metrics page with real data
