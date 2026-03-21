@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Bot, Clock, RefreshCw, Play } from "lucide-react";
+import { Bot, Clock, RefreshCw, Play, PauseCircle, PlayCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +19,7 @@ interface Agent {
 }
 
 type RunState = "idle" | "running" | "success" | "error";
+type ToggleState = "idle" | "loading";
 
 interface RunMsg {
   text: string;
@@ -50,6 +51,7 @@ export default function AgentsPage() {
   const [lastRefresh, setLastRefresh] = useState(Date.now());
   const [runStates, setRunStates] = useState<Record<string, RunState>>({});
   const [runMessages, setRunMessages] = useState<Record<string, RunMsg>>({});
+  const [toggleStates, setToggleStates] = useState<Record<string, ToggleState>>({});
 
   const load = useCallback(() => {
     setLoading(true);
@@ -105,6 +107,21 @@ export default function AgentsPage() {
         return n;
       });
     }, 5000);
+  };
+
+
+  const toggleAgent = async (id: string, currentStatus: string) => {
+    const isActive = currentStatus === "active" || currentStatus === "running";
+    const action = isActive ? "disable" : "enable";
+    setToggleStates((prev) => ({ ...prev, [id]: "loading" }));
+    try {
+      await fetch(`${API}/api/crons/${id}/${action}`, { method: "POST" });
+    } catch {
+      // best-effort
+    } finally {
+      setToggleStates((prev) => ({ ...prev, [id]: "idle" }));
+      load();
+    }
   };
 
   return (
@@ -217,6 +234,30 @@ export default function AgentsPage() {
                         )}
                         {runState === "running" ? "Running…" : "Run now"}
                       </button>
+                      {(() => {
+                        const isActive = (agent.status || "").toLowerCase() === "active" || (agent.status || "").toLowerCase() === "running";
+                        const toggling = toggleStates[agent.id] === "loading";
+                        return (
+                          <button
+                            onClick={() => toggleAgent(agent.id, agent.status || "")}
+                            disabled={toggling}
+                            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap ${
+                              isActive
+                                ? "border-amber-700/50 text-amber-400 hover:border-amber-600 hover:bg-amber-950/20"
+                                : "border-green-700/50 text-green-400 hover:border-green-600 hover:bg-green-950/20"
+                            }`}
+                          >
+                            {toggling ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : isActive ? (
+                              <PauseCircle className="w-3 h-3" />
+                            ) : (
+                              <PlayCircle className="w-3 h-3" />
+                            )}
+                            {toggling ? "…" : isActive ? "Disable" : "Enable"}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
 

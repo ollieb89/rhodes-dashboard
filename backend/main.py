@@ -160,6 +160,38 @@ async def run_cron(id: str):
         return {"ok": False, "error": str(e)}
 
 
+@app.get("/api/crons")
+async def get_crons():
+    """Same as /api/agents but semantically named for cron management."""
+    return await get_agents()
+
+
+@app.post("/api/crons/{id}/enable")
+async def enable_cron(id: str):
+    try:
+        output = await asyncio.to_thread(run, ["openclaw", "cron", "enable", id])
+        return {"ok": True, "output": output}
+    except FileNotFoundError:
+        return {"ok": False, "error": "openclaw not found in PATH"}
+    except subprocess.CalledProcessError as e:
+        return {"ok": False, "error": f"Command failed: {e.stderr or e.stdout}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/crons/{id}/disable")
+async def disable_cron(id: str):
+    try:
+        output = await asyncio.to_thread(run, ["openclaw", "cron", "disable", id])
+        return {"ok": True, "output": output}
+    except FileNotFoundError:
+        return {"ok": False, "error": "openclaw not found in PATH"}
+    except subprocess.CalledProcessError as e:
+        return {"ok": False, "error": f"Command failed: {e.stderr or e.stdout}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 @app.get("/api/hn")
 async def get_hn(query: str = "workflow-guardian"):
     try:
