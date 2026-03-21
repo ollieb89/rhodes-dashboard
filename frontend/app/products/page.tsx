@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, GitFork, ExternalLink, Package, ArrowUpDown, Download, CheckCircle, XCircle, Loader, Circle, Pin } from "lucide-react";
+import { Star, GitFork, ExternalLink, Package, ArrowUpDown, Download, CheckCircle, XCircle, Loader, Circle, Pin, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,6 +62,45 @@ function downloadCsv(rows: Repo[]) {
   URL.revokeObjectURL(url);
 }
 
+interface ReadmeState {
+  content: string | null;
+  loading: boolean;
+  error: boolean;
+}
+
+const readmeCache: Record<string, string> = {};
+
+function ReadmePreview({ repoName, open }: { repoName: string; open: boolean }) {
+  const [state, setState] = useState<ReadmeState>({ content: null, loading: false, error: false });
+
+  useEffect(() => {
+    if (!open) return;
+    if (readmeCache[repoName]) {
+      setState({ content: readmeCache[repoName], loading: false, error: false });
+      return;
+    }
+    setState({ content: null, loading: true, error: false });
+    fetch(`${API}/api/products/${repoName}/readme`)
+      .then((r) => r.json())
+      .then((d) => {
+        const text = d.content ?? "";
+        readmeCache[repoName] = text;
+        setState({ content: text, loading: false, error: false });
+      })
+      .catch(() => setState({ content: null, loading: false, error: true }));
+  }, [open, repoName]);
+
+  if (!open) return null;
+  if (state.loading) return <div className="mt-3 h-16 bg-zinc-800/60 rounded-lg animate-pulse" />;
+  if (state.error) return <p className="mt-3 text-[10px] text-red-400">Failed to load README</p>;
+  if (!state.content) return <p className="mt-3 text-[10px] text-zinc-600">No README available</p>;
+  return (
+    <pre className="mt-3 text-[10px] font-mono text-zinc-400 bg-zinc-800/50 rounded-lg p-3 whitespace-pre-wrap break-words max-h-48 overflow-y-auto leading-relaxed border border-zinc-700/40">
+      {state.content}
+    </pre>
+  );
+}
+
 function CiBadge({ run }: { run: CiRun | undefined }) {
   if (!run) return null;
   const conclusion = run.conclusion?.toLowerCase();
@@ -100,6 +139,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("stars");
   const { pins, toggle, isPinned } = usePins("repos");
+  const [expandedRepo, setExpandedRepo] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${API}/api/products`).then((r) => r.json()).then((d) => { setRepos(d.repos ?? []); setFetchedAt(new Date()); }).catch(() => setError("Backend unavailable")).finally(() => setLoading(false));

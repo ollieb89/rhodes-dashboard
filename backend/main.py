@@ -756,3 +756,29 @@ async def get_github_profile():
             "bio": "", "company": "", "location": "",
             "error": str(e),
         }
+
+
+# ─── DASH-030: Repo README preview ───────────────────────────────────────────
+
+@app.get("/api/products/{repo}/readme")
+async def get_repo_readme(repo: str):
+    """Return base64-decoded README content for a repo, truncated to 2000 chars."""
+    cache_key = f"/api/products/{repo}/readme"
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        return cached
+    try:
+        output = await asyncio.to_thread(
+            run, ["gh", "api", f"/repos/ollieb89/{repo}/readme"]
+        )
+        data = json.loads(output) if output else {}
+        raw_b64 = data.get("content", "")
+        # GitHub API returns content with newlines in the base64 string
+        import base64
+        decoded = base64.b64decode(raw_b64.replace("\n", "").replace(" ", "")).decode("utf-8", errors="replace")
+        truncated = decoded[:2000]
+        result = {"content": truncated}
+        _cache.set(cache_key, result, 300)
+        return result
+    except Exception as e:
+        return {"content": "", "error": str(e)}
