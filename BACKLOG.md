@@ -240,7 +240,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-016** · S · Add a "Last N runs" history view to the Agents page
+- [x] **DASH-016** · S · Add a "Last N runs" history view to the Agents page
 
   Using `/api/history` from DASH-008, add a small "Agent count over time" chart (7-day line) to the top of `frontend/app/agents/page.tsx`. Shows how the number of registered cron agents has changed.
 
