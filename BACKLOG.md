@@ -627,7 +627,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-035** · S · Shareable dashboard snapshot export
+- [x] **DASH-035** · S · Shareable dashboard snapshot export
 
   Add a one-click dashboard snapshot export for the Overview page.
 
