@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Bot, Clock, RefreshCw, Play, PauseCircle, PlayCircle } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -16,6 +17,12 @@ interface Agent {
   status: string;
   last_run: string | null;
   next_run: string | null;
+}
+
+
+interface HistorySnapshot {
+  timestamp: string;
+  total_agents: number;
 }
 
 type RunState = "idle" | "running" | "success" | "error";
@@ -52,14 +59,18 @@ export default function AgentsPage() {
   const [runStates, setRunStates] = useState<Record<string, RunState>>({});
   const [runMessages, setRunMessages] = useState<Record<string, RunMsg>>({});
   const [toggleStates, setToggleStates] = useState<Record<string, ToggleState>>({});
+  const [history, setHistory] = useState<HistorySnapshot[]>([]);
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`${API}/api/agents`)
-      .then((r) => r.json())
-      .then((d) => {
+    Promise.all([
+      fetch(`${API}/api/agents`).then((r) => r.json()),
+      fetch(`${API}/api/history?days=7`).then((r) => r.json()).catch(() => null),
+    ])
+      .then(([d, hist]) => {
         setAgents(d.agents ?? []);
         setError(d.error ?? null);
+        if (hist) setHistory(hist.snapshots ?? hist ?? []);
       })
       .catch(() => setError("Backend unavailable"))
       .finally(() => {
@@ -149,6 +160,53 @@ export default function AgentsPage() {
         <div className="bg-red-950/30 border border-red-800/50 rounded-xl px-4 py-3">
           <p className="text-sm text-red-400">{error}</p>
         </div>
+      )}
+
+
+      {/* Agent count over time */}
+      {history.length > 1 && (
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
+              Agent count — 7 day trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            <ResponsiveContainer width="100%" height={80}>
+              <LineChart data={history.map((h) => ({
+                value: h.total_agents,
+                label: new Date(h.timestamp).toLocaleDateString("en-GB", { month: "short", day: "numeric" }),
+              }))}>
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10, fill: "#52525b" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload?.length) {
+                      return (
+                        <div className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200">
+                          {payload[0].payload.label}: {payload[0].value} agents
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#a78bfa"
+                  strokeWidth={1.5}
+                  dot={{ r: 2, fill: "#a78bfa", strokeWidth: 0 }}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       )}
 
       {/* Column labels */}
