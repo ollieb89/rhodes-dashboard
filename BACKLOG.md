@@ -277,7 +277,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-019** · S · Add data export (CSV download) to Products and Content pages
+- [x] **DASH-019** · S · Add data export (CSV download) to Products and Content pages
 
   Add a "Export CSV" button to `frontend/app/products/page.tsx` and `frontend/app/content/page.tsx`. On click, serialise the current in-memory data to CSV and trigger a browser download using a `data:` URL or `Blob`. No server-side changes needed.
 
