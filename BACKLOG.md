@@ -212,7 +212,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-014** · M · Add `/api/crons` endpoint with enable/disable actions
+- [x] **DASH-014** · M · Add `/api/crons` endpoint with enable/disable actions
 
   Extend `backend/main.py` with:
   - `GET /api/crons` — same as `/api/agents` but with the normalised structure from DASH-001
