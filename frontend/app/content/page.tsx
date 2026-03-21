@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, MessageSquare, Eye, ExternalLink, TrendingUp } from "lucide-react";
+import { Heart, MessageSquare, Eye, ExternalLink, TrendingUp, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/error-boundary";
 
@@ -47,19 +48,41 @@ function timeAgo(iso: string): string {
 export default function ContentPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [hnPosts, setHnPosts] = useState<HNPost[]>([]);
+  const [hnQuery, setHnQuery] = useState("workflow-guardian");
+  const [hnInput, setHnInput] = useState("workflow-guardian");
+  const [hnLoading, setHnLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const fetchHN = async (q: string) => {
+    setHnLoading(true);
+    try {
+      const r = await fetch(`${API}/api/hn?query=${encodeURIComponent(q)}`);
+      const d = await r.json();
+      setHnPosts(d.posts ?? []);
+    } catch {
+      setHnPosts([]);
+    } finally {
+      setHnLoading(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
       fetch(`${API}/api/articles`).then((r) => r.json()),
-      fetch(`${API}/api/hn`).then((r) => r.json()),
+      fetch(`${API}/api/hn?query=${encodeURIComponent(hnQuery)}`).then((r) => r.json()),
     ])
       .then(([artData, hnData]) => {
         setArticles((artData.articles ?? []).sort((a: Article, b: Article) => (b.page_views_count ?? 0) - (a.page_views_count ?? 0)));
         setHnPosts(hnData.posts ?? []);
       })
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleHNSearch = () => {
+    setHnQuery(hnInput);
+    fetchHN(hnInput);
+  };
 
   const published = articles.filter((a) => a.published);
   const drafts = articles.filter((a) => !a.published);
@@ -212,13 +235,36 @@ export default function ContentPage() {
         </TabsContent>
 
         <TabsContent value="hn" className="mt-4 space-y-3">
-          {loading ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={hnInput}
+              onChange={(e) => setHnInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleHNSearch()}
+              placeholder="Search Hacker News…"
+              className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 text-sm rounded-lg px-3 py-2 outline-none focus:border-violet-500"
+            />
+            <Button
+              size="sm"
+              onClick={handleHNSearch}
+              disabled={hnLoading}
+              className="bg-zinc-700 hover:bg-zinc-600 text-zinc-200 border-0 gap-1.5"
+            >
+              <Search className="w-3.5 h-3.5" />
+              {hnLoading ? "…" : "Search"}
+            </Button>
+          </div>
+          {hnLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 bg-zinc-800 rounded-xl" />
+            ))
+          ) : loading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-16 bg-zinc-800 rounded-xl" />
             ))
           ) : hnPosts.length === 0 ? (
             <p className="text-sm text-zinc-500 text-center py-8">
-              No Hacker News results found
+              No Hacker News results for &quot;{hnQuery}&quot;
             </p>
           ) : (
             hnPosts.map((post, i) => (
