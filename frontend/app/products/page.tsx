@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, GitFork, ExternalLink, Package } from "lucide-react";
+import { Star, GitFork, ExternalLink, Package, ArrowUpDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 const API = "http://localhost:8521";
+
+type SortKey = "stars" | "forks" | "newest";
 
 interface Repo {
   name: string;
@@ -27,11 +29,28 @@ function timeAgo(iso: string): string {
   return `${Math.floor(months / 12)}y ago`;
 }
 
+const SORT_LABELS: Record<SortKey, string> = {
+  stars: "Stars ↕",
+  forks: "Forks ↕",
+  newest: "Newest ↕",
+};
+
+const SORT_ORDER: SortKey[] = ["stars", "forks", "newest"];
+
+function sortRepos(repos: Repo[], key: SortKey): Repo[] {
+  return [...repos].sort((a, b) => {
+    if (key === "stars") return b.stargazerCount - a.stargazerCount;
+    if (key === "forks") return b.forkCount - a.forkCount;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
 export default function ProductsPage() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("stars");
 
   useEffect(() => {
     fetch(`${API}/api/products`)
@@ -41,28 +60,46 @@ export default function ProductsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const cycleSort = () => {
+    const idx = SORT_ORDER.indexOf(sortKey);
+    setSortKey(SORT_ORDER[(idx + 1) % SORT_ORDER.length]);
+  };
+
   const filtered = repos.filter(
     (r) =>
       r.name.toLowerCase().includes(search.toLowerCase()) ||
       (r.description ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
+  const sorted = sortRepos(filtered, sortKey);
+
   return (
     <div className="space-y-5 max-w-5xl">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-semibold text-zinc-100">Products</h1>
           <p className="text-sm text-zinc-500 mt-1">
             GitHub repos for ollieb89 ({repos.length} total)
           </p>
         </div>
-        <input
-          type="text"
-          placeholder="Search repos…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 text-sm rounded-lg px-3 py-2 outline-none focus:border-violet-500 w-52"
-        />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={cycleSort}
+            className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 text-xs gap-1.5"
+          >
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            {SORT_LABELS[sortKey]}
+          </Button>
+          <input
+            type="text"
+            placeholder="Search repos…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 text-sm rounded-lg px-3 py-2 outline-none focus:border-violet-500 w-52"
+          />
+        </div>
       </div>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
@@ -72,7 +109,7 @@ export default function ProductsPage() {
           ? Array.from({ length: 9 }).map((_, i) => (
               <Skeleton key={i} className="h-32 bg-zinc-800 rounded-xl" />
             ))
-          : filtered.map((repo) => (
+          : sorted.map((repo, idx) => (
               <Card
                 key={repo.name}
                 className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-colors group"
@@ -80,6 +117,9 @@ export default function ProductsPage() {
                 <CardContent className="pt-4 pb-4 px-4">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs text-zinc-600 font-mono shrink-0 w-5 text-right">
+                        #{idx + 1}
+                      </span>
                       <Package className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                       <a
                         href={repo.url}
@@ -103,18 +143,14 @@ export default function ProductsPage() {
                     {repo.description || "No description"}
                   </p>
                   <div className="flex items-center gap-3 text-xs text-zinc-500">
-                    {repo.stargazerCount > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Star className="w-3 h-3" />
-                        {repo.stargazerCount}
-                      </span>
-                    )}
-                    {repo.forkCount > 0 && (
-                      <span className="flex items-center gap-1">
-                        <GitFork className="w-3 h-3" />
-                        {repo.forkCount}
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1">
+                      <Star className="w-3 h-3" />
+                      {repo.stargazerCount}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <GitFork className="w-3 h-3" />
+                      {repo.forkCount}
+                    </span>
                     <span className="ml-auto">{timeAgo(repo.createdAt)}</span>
                   </div>
                 </CardContent>
@@ -122,7 +158,7 @@ export default function ProductsPage() {
             ))}
       </div>
 
-      {!loading && filtered.length === 0 && (
+      {!loading && sorted.length === 0 && (
         <div className="flex flex-col items-center justify-center h-48 text-zinc-500">
           <Package className="w-8 h-8 mb-2" />
           <p className="text-sm">No repositories found</p>
