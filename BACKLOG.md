@@ -389,7 +389,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P2 — Nice-to-have
 
-- [ ] **DASH-024** · S · Dark/light theme toggle
+- [x] **DASH-024** · S · Dark/light theme toggle
 
   Add a theme toggle to the sidebar footer. Use `next-themes` for theme management (install via `npm install next-themes`).
 
