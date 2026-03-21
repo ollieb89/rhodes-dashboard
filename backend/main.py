@@ -113,7 +113,7 @@ async def get_products():
                 "list",
                 "ollieb89",
                 "--json",
-                "name,description,stargazerCount,forkCount,createdAt,url,primaryLanguage",
+                "name,description,stargazerCount,forkCount,createdAt,pushedAt,url,primaryLanguage",
                 "-L",
                 "50",
             ],
@@ -855,3 +855,93 @@ async def get_cron_details(id: str):
         return {"error": "openclaw not found in PATH"}
     except Exception as e:
         return {"error": str(e)}
+
+
+# ─── DASH-032: Activity feed ──────────────────────────────────────────────────
+
+@app.get("/api/activity")
+async def get_activity(limit: int = Query(default=20, le=50)):
+    """Unified activity feed: cron events + article publishes + repo updates."""
+    items = []
+    now_ts = datetime.now(tz=timezone.utc).timestamp() * 1000
+
+    # 1. Cron run events from JSONL files
+    if os.path.isdir(CRON_RUNS_DIR):
+        for fpath in glob.glob(os.path.join(CRON_RUNS_DIR, "*.jsonl")):
+            try:
+                lines = open(fpath).readlines()
+                for line in reversed(lines[-10:]):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        e = json.loads(line)
+                        if e.get("action") != "finished":
+                            continue
+                        ts_ms = e.get("ts", 0)
+                        job_id = e.get("jobId", "")[:8]
+                        status = e.get("status", "")
+                        summary = (e.get("summary") or "")[:80]
+                        error = e.get("error", "")
+                        text = error if error else summary if summary else f"cron/{job_id} finished"
+                        items.append({
+                            "id": f"cron-{ts_ms}-{job_id}",
+                            "type": "cron",
+                            "title": f"cron/{job_id}",
+                            "text": text,
+                            "timestamp": datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).isoformat(),
+                            "level": "error" if status == "error" else "ok",
+                            "url": None,
+                        })
+                    except json.JSONDecodeError:
+                        pass
+            except OSError:
+                pass
+
+    # 2. Article publishes
+    try:
+        art_data = await get_articles()
+        for a in (art_data.get("articles") or [])[:10]:
+            pub = a.get("published_at") or a.get("created_at") or ""
+            if not pub:
+                continue
+            items.append({
+                "id": f"article-{a.get('id', '')}",
+                "type": "article",
+                "title": a.get("title", "Article"),
+                "text": a.get("description") or "",
+                "timestamp": pub,
+                "level": "ok",
+                "url": a.get("url"),
+            })
+    except Exception:
+        pass
+
+    # 3. Repo creations/updates
+    try:
+        prod_data = await get_products()
+        for r in (prod_data.get("repos") or [])[:10]:
+            ts = r.get("pushedAt") or r.get("updatedAt") or r.get("createdAt") or ""
+            if not ts:
+                continue
+            items.append({
+                "id": f"repo-{r.get('name', '')}",
+                "type": "repo",
+                "title": r.get("name", "repo"),
+                "text": r.get("description") or "",
+                "timestamp": ts,
+                "level": "ok",
+                "url": r.get("url"),
+            })
+    except Exception:
+        pass
+
+    # Sort newest first, deduplicate, limit
+    items.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    seen = set()
+    unique = []
+    for item in items:
+        if item["id"] not in seen:
+            seen.add(item["id"])
+            unique.append(item)
+    return {"items": unique[:limit]}

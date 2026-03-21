@@ -13,6 +13,16 @@ import { UpdatedAgo } from "@/components/updated-ago";
 const API = "http://localhost:8521";
 const REFRESH_INTERVAL = 30000; // 30 seconds
 
+interface ActivityItem {
+  id: string;
+  type: "cron" | "article" | "repo";
+  title: string;
+  text: string;
+  timestamp: string;
+  level: string;
+  url: string | null;
+}
+
 interface GitHubProfile {
   login: string;
   name: string;
@@ -83,19 +93,22 @@ export default function OverviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const [profile, setProfile] = useState<GitHubProfile | null>(null);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [ovRes, prodRes, agentsRes, histRes, profRes] = await Promise.all([
+      const [ovRes, prodRes, agentsRes, histRes, profRes, actRes] = await Promise.all([
         fetch(`${API}/api/overview`),
         fetch(`${API}/api/products`),
         fetch(`${API}/api/agents`),
         fetch(`${API}/api/history?days=7`).catch(() => null),
         fetch(`${API}/api/github/profile`).catch(() => null),
+        fetch(`${API}/api/activity?limit=20`).catch(() => null),
       ]);
       const ov = await ovRes.json();
       if (profRes) { const profData = await profRes.json(); setProfile(profData); }
+      if (actRes) { const actData = await actRes.json(); setActivity(actData.items ?? []); }
       const prod = await prodRes.json();
       const ag = await agentsRes.json();
       setStats(ov.stats);
@@ -437,6 +450,54 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Activity Feed */}
+      <Card className="bg-zinc-900 border-zinc-800">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-zinc-400" />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-4">
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-10 bg-zinc-800 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          ) : activity.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-24 text-zinc-600">
+              <Activity className="w-6 h-6 mb-1 opacity-30" />
+              <p className="text-xs">No recent activity</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {activity.slice(0, 15).map((item) => {
+                const Icon = item.type === "article" ? FileText : item.type === "repo" ? Package : Bot;
+                const iconColor = item.type === "article" ? "text-blue-400" : item.type === "repo" ? "text-violet-400" : item.level === "error" ? "text-red-400" : "text-green-400";
+                const diff = Math.floor((Date.now() - new Date(item.timestamp).getTime()) / 60000);
+                const ago = diff < 1 ? "just now" : diff < 60 ? `${diff}m ago` : diff < 1440 ? `${Math.floor(diff / 60)}h ago` : `${Math.floor(diff / 1440)}d ago`;
+                const inner = (
+                  <div className="flex items-start gap-2.5 px-3 py-2 rounded-lg hover:bg-zinc-800/40 transition-colors">
+                    <Icon className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${iconColor}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-zinc-300 font-medium truncate">{item.title}</p>
+                      {item.text && <p className="text-[10px] text-zinc-500 truncate mt-0.5">{item.text.slice(0, 80)}</p>}
+                    </div>
+                    <span className="text-[10px] text-zinc-600 shrink-0 mt-0.5">{ago}</span>
+                  </div>
+                );
+                return item.url ? (
+                  <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="block">{inner}</a>
+                ) : (
+                  <div key={item.id}>{inner}</div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
     </ErrorBoundary>
   );
