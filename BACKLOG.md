@@ -153,7 +153,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-010** · S · Improve the Products page sorting and layout
+- [x] **DASH-010** · S · Improve the Products page sorting and layout
 
   `frontend/app/products/page.tsx` currently lists repos. Improve it:
   - Sort repos by `stargazerCount` descending by default
