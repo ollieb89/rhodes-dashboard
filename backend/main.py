@@ -25,6 +25,46 @@ ENV = {**os.environ, "PATH": f"{NODE_BIN}:{os.environ.get('PATH', '')}"}
 DB_PATH = os.path.join(os.path.dirname(__file__), "history.db")
 
 
+# ─── DASH-028: TTL Cache ──────────────────────────────────────────────────────
+
+class TTLCache:
+    """Simple thread-safe in-memory TTL cache. No external deps."""
+
+    def __init__(self) -> None:
+        self._store: dict[str, tuple[object, float]] = {}
+        self._lock = __import__("threading").Lock()
+
+    def get(self, key: str) -> object | None:
+        with self._lock:
+            entry = self._store.get(key)
+            if entry is None:
+                return None
+            value, expires_at = entry
+            if time.time() > expires_at:
+                del self._store[key]
+                return None
+            print(f"[cache] HIT {key}", flush=True)
+            return value
+
+    def set(self, key: str, value: object, ttl_seconds: float) -> None:
+        with self._lock:
+            self._store[key] = (value, time.time() + ttl_seconds)
+
+    def status(self) -> list[dict]:
+        now = time.time()
+        with self._lock:
+            result = []
+            expired = [k for k, (_, exp) in self._store.items() if now > exp]
+            for k in expired:
+                del self._store[k]
+            for key, (_, expires_at) in self._store.items():
+                result.append({"key": key, "expires_in_s": round(expires_at - now, 1)})
+        return sorted(result, key=lambda x: x["key"])
+
+
+_cache = TTLCache()
+
+
 def _init_db() -> None:
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
@@ -61,6 +101,9 @@ def run(cmd: list[str]) -> str:
 
 @app.get("/api/products")
 async def get_products():
+    cached = _cache.get("/api/products")
+    if cached is not None:
+        return cached
     try:
         output = await asyncio.to_thread(
             run,
@@ -76,13 +119,18 @@ async def get_products():
             ],
         )
         repos = json.loads(output) if output else []
-        return {"repos": repos, "total": len(repos)}
+        result = {"repos": repos, "total": len(repos)}
+        _cache.set("/api/products", result, 120)
+        return result
     except Exception as e:
         return {"repos": [], "total": 0, "error": str(e)}
 
 
 @app.get("/api/articles")
 async def get_articles():
+    cached = _cache.get("/api/articles")
+    if cached is not None:
+        return cached
     api_key = os.environ.get("DEVTO_API_KEY", "")
     try:
         async with httpx.AsyncClient(timeout=15) as client:
@@ -94,7 +142,9 @@ async def get_articles():
             articles = resp.json() if resp.status_code == 200 else []
             if not isinstance(articles, list):
                 articles = []
-        return {"articles": articles, "total": len(articles)}
+        result = {"articles": articles, "total": len(articles)}
+        _cache.set("/api/articles", result, 120)
+        return result
     except Exception as e:
         return {"articles": [], "total": 0, "error": str(e)}
 
@@ -208,6 +258,9 @@ async def get_hn(query: str = "workflow-guardian"):
 
 @app.get("/api/metrics")
 async def get_metrics():
+    cached = _cache.get("/api/metrics")
+    if cached is not None:
+        return cached
     api_key = os.environ.get("DEVTO_API_KEY", "")
 
     async def fetch_repos():
@@ -250,7 +303,7 @@ async def get_metrics():
         best = max(articles, key=lambda a: a.get("page_views_count", 0))
         top_article = {"title": best.get("title"), "views": best.get("page_views_count", 0), "url": best.get("url")}
 
-    return {
+    result = {
         "total_stars": total_stars,
         "total_forks": total_forks,
         "total_repos": len(repos),
@@ -260,6 +313,8 @@ async def get_metrics():
         "top_repo": top_repo,
         "top_article": top_article,
     }
+    _cache.set("/api/metrics", result, 60)
+    return result
 
 
 @app.get("/api/overview")
@@ -365,6 +420,12 @@ async def _get_total_stars() -> int:
     except Exception:
         return 0
 
+
+
+@app.get("/api/cache/status")
+async def cache_status():
+    """Return current live cache keys and their remaining TTL."""
+    return {"keys": _cache.status()}
 
 @app.get("/health")
 async def health():
@@ -498,7 +559,7 @@ async def logs_stream():
 
 # ─── DASH-022: CI status endpoint ────────────────────────────────────────────
 
-_ci_cache: dict = {"data": None, "expires": 0.0}
+# _ci_cache replaced by TTLCache in DASH-028
 
 
 async def _fetch_ci_for_repo(repo_name: str) -> tuple[str, dict | None]:
@@ -531,9 +592,9 @@ async def _fetch_ci_for_repo(repo_name: str) -> tuple[str, dict | None]:
 @app.get("/api/ci")
 async def get_ci():
     """Return latest CI run per repo. Cached for 60 s."""
-    now = time.time()
-    if _ci_cache["data"] is not None and now < _ci_cache["expires"]:
-        return _ci_cache["data"]
+    cached = _cache.get("/api/ci")
+    if cached is not None:
+        return cached
 
     # Get repo list
     try:
@@ -560,8 +621,7 @@ async def get_ci():
             runs[repo_name] = run_data
 
     data = {"runs": runs}
-    _ci_cache["data"] = data
-    _ci_cache["expires"] = now + 60.0
+    _cache.set("/api/ci", data, 60)
     return data
 
 
@@ -670,10 +730,13 @@ async def clear_events():
 @app.get("/api/github/profile")
 async def get_github_profile():
     """Return GitHub user profile via gh CLI."""
+    cached = _cache.get("/api/github/profile")
+    if cached is not None:
+        return cached
     try:
         output = await asyncio.to_thread(run, ["gh", "api", "/user"])
         data = json.loads(output) if output else {}
-        return {
+        result = {
             "login": data.get("login", ""),
             "name": data.get("name", ""),
             "avatar_url": data.get("avatar_url", ""),
@@ -684,6 +747,8 @@ async def get_github_profile():
             "company": data.get("company") or "",
             "location": data.get("location") or "",
         }
+        _cache.set("/api/github/profile", result, 300)
+        return result
     except Exception as e:
         return {
             "login": "", "name": "", "avatar_url": "",
