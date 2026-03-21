@@ -583,7 +583,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-033** · M · Error/incident tracker panel
+- [x] **DASH-033** · M · Error/incident tracker panel
 
   Surface backend failures and failing CI/cron states in a dedicated incident view.
 
