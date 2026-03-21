@@ -499,7 +499,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P2 — Nice-to-have
 
-- [ ] **DASH-029** · S · "Last updated" timestamps on all data cards
+- [x] **DASH-029** · S · "Last updated" timestamps on all data cards
 
   Each data card (repos, articles, agents, metrics) should show when data was last fetched.
 
