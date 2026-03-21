@@ -170,7 +170,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-011** · S · Improve the Content page with article stats
+- [x] **DASH-011** · S · Improve the Content page with article stats
 
   `frontend/app/content/page.tsx` lists dev.to articles. Enhance it to show per-article stats from the dev.to API response (`page_views_count`, `public_reactions_count`, `comments_count`):
   - Show views, reactions, and comments count on each article row
