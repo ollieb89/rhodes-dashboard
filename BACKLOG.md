@@ -184,7 +184,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-012** · S · Add error boundary component to prevent full-page crashes
+- [x] **DASH-012** · S · Add error boundary component to prevent full-page crashes
 
   Create `frontend/components/error-boundary.tsx` — a React error boundary that catches render errors in child components and shows a fallback card with the error message and a "Retry" button that resets state.
 
