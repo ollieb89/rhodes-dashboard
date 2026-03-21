@@ -663,3 +663,31 @@ async def clear_events():
             except OSError as e:
                 return {"ok": False, "error": str(e)}
     return {"ok": True, "cleared": cleared}
+
+
+# ─── DASH-027: GitHub profile ─────────────────────────────────────────────────
+
+@app.get("/api/github/profile")
+async def get_github_profile():
+    """Return GitHub user profile via gh CLI."""
+    try:
+        output = await asyncio.to_thread(run, ["gh", "api", "/user"])
+        data = json.loads(output) if output else {}
+        return {
+            "login": data.get("login", ""),
+            "name": data.get("name", ""),
+            "avatar_url": data.get("avatar_url", ""),
+            "public_repos": data.get("public_repos", 0),
+            "followers": data.get("followers", 0),
+            "following": data.get("following", 0),
+            "bio": data.get("bio") or "",
+            "company": data.get("company") or "",
+            "location": data.get("location") or "",
+        }
+    except Exception as e:
+        return {
+            "login": "", "name": "", "avatar_url": "",
+            "public_repos": 0, "followers": 0, "following": 0,
+            "bio": "", "company": "", "location": "",
+            "error": str(e),
+        }

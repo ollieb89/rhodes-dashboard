@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Package, FileText, Bot, Activity, Clock, RefreshCw } from "lucide-react";
+import { Package, FileText, Bot, Activity, Clock, RefreshCw, MapPin, Users, Github } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,18 @@ import { ErrorBoundary } from "@/components/error-boundary";
 
 const API = "http://localhost:8521";
 const REFRESH_INTERVAL = 30000; // 30 seconds
+
+interface GitHubProfile {
+  login: string;
+  name: string;
+  avatar_url: string;
+  public_repos: number;
+  followers: number;
+  following: number;
+  bio: string;
+  company: string;
+  location: string;
+}
 
 interface OverviewStats {
   total_repos: number;
@@ -68,17 +80,20 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<GitHubProfile | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [ovRes, prodRes, agentsRes, histRes] = await Promise.all([
+      const [ovRes, prodRes, agentsRes, histRes, profRes] = await Promise.all([
         fetch(`${API}/api/overview`),
         fetch(`${API}/api/products`),
         fetch(`${API}/api/agents`),
         fetch(`${API}/api/history?days=7`).catch(() => null),
+        fetch(`${API}/api/github/profile`).catch(() => null),
       ]);
       const ov = await ovRes.json();
+      if (profRes) { const profData = await profRes.json(); setProfile(profData); }
       const prod = await prodRes.json();
       const ag = await agentsRes.json();
       setStats(ov.stats);
@@ -141,6 +156,60 @@ export default function OverviewPage() {
           </Badge>
         )}
       </div>
+
+      {/* GitHub Profile Card */}
+      {profile && profile.login && (
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardContent className="px-5 py-4">
+            <div className="flex items-center gap-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={profile.avatar_url}
+                alt={profile.login}
+                width={48}
+                height={48}
+                className="w-12 h-12 rounded-full border border-zinc-700 shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-zinc-100">{profile.name || profile.login}</span>
+                  <a
+                    href={`https://github.com/${profile.login}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-violet-400 transition-colors"
+                  >
+                    <Github className="w-3 h-3" />
+                    {profile.login}
+                  </a>
+                </div>
+                {profile.bio && (
+                  <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">{profile.bio}</p>
+                )}
+                {profile.location && (
+                  <p className="flex items-center gap-1 text-[11px] text-zinc-500 mt-0.5">
+                    <MapPin className="w-3 h-3" />{profile.location}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-4 text-xs text-zinc-400 shrink-0">
+                <div className="text-center">
+                  <p className="font-semibold text-zinc-200">{profile.public_repos}</p>
+                  <p className="text-[10px] text-zinc-600">repos</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-zinc-200">{profile.followers}</p>
+                  <p className="text-[10px] text-zinc-600">followers</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-zinc-200">{profile.following}</p>
+                  <p className="text-[10px] text-zinc-600">following</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
