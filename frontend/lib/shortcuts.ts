@@ -75,6 +75,14 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     href: "/incidents",
     label: "Incidents",
   },
+  {
+    id: "nav-settings",
+    group: "Navigation",
+    description: "Go to Settings",
+    keys: ["g", "s"],
+    href: "/settings",
+    label: "Settings",
+  },
 ];
 
 export const NAVIGATION_SHORTCUTS = SHORTCUTS.filter(

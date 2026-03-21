@@ -23,7 +23,7 @@ const nav = [
 
   return {
     ...item,
-    label: shortcut?.label ?? (item.href === "/settings" ? "Settings" : ""),
+    label: shortcut?.label ?? "",
     shortcut: shortcut?.keys[1],
   };
 });
@@ -130,7 +130,7 @@ export function Sidebar() {
       {/* Hamburger toggle — mobile only */}
       <button
         onClick={() => setOpen(true)}
-        className="md:hidden fixed top-8 left-3 z-30 text-zinc-400 hover:text-zinc-200 bg-zinc-900 border border-zinc-800 rounded-md p-2 min-h-11 min-w-11 flex items-center justify-center"
+        className="md:hidden fixed top-8 left-3 z-40 text-zinc-400 hover:text-zinc-200 bg-zinc-900 border border-zinc-800 rounded-md p-2 min-h-11 min-w-11 flex items-center justify-center"
         aria-label="Open menu"
       >
         <Menu className="w-4 h-4" />
@@ -139,7 +139,7 @@ export function Sidebar() {
       {/* Mobile overlay */}
       {open && (
         <div
-          className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30"
+          className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
           onClick={() => setOpen(false)}
         />
       )}

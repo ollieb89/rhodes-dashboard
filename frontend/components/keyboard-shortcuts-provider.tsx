@@ -15,8 +15,13 @@ export function KeyboardShortcutsProvider({
 }: KeyboardShortcutsProviderProps) {
   const router = useRouter();
   const [helpOpen, setHelpOpen] = useState(false);
+  const helpOpenRef = useRef(false);
   const pendingNavigation = useRef(false);
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    helpOpenRef.current = helpOpen;
+  }, [helpOpen]);
 
   useEffect(() => {
     const clearPendingNavigation = () => {
@@ -32,7 +37,7 @@ export function KeyboardShortcutsProvider({
         return;
       }
 
-      if (helpOpen && event.key === "Escape") {
+      if (helpOpenRef.current && event.key === "Escape") {
         event.preventDefault();
         clearPendingNavigation();
         setHelpOpen(false);
@@ -85,7 +90,7 @@ export function KeyboardShortcutsProvider({
       window.removeEventListener("keydown", handler);
       clearPendingNavigation();
     };
-  }, [helpOpen, router]);
+  }, [router]);
 
   return (
     <>

@@ -64,6 +64,8 @@ export function ShortcutsHelpModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close keyboard shortcuts"
+            autoFocus
             className="rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 transition-colors hover:border-zinc-600 hover:text-zinc-100"
           >
             Esc
