@@ -674,7 +674,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-037** · M · Docker Compose local runtime
+- [x] **DASH-037** · M · Docker Compose local runtime
 
   Add a simple containerized local setup for the dashboard.
 
