@@ -717,7 +717,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P2 — Nice-to-have
 
-- [ ] **DASH-039** · S · Systemd service docs + helper scripts
+- [x] **DASH-039** · S · Systemd service docs + helper scripts
 
   Make it easy to run the dashboard persistently on Ollie's machine.
 
