@@ -434,3 +434,101 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
   - Pinned items appear first, visually distinguished (e.g. violet pin icon)
   - Unpinning restores normal sort order
 
+
+---
+
+## Batch 3 — Polish & Power Features
+
+### P1 — Important
+
+- [ ] **DASH-026** · M · Global search (⌘K command palette)
+
+  Add a command palette triggered by `Cmd+K` / `Ctrl+K` that searches across repos, articles, and agents in real time.
+
+  **Frontend only — no backend changes:**
+  - New component `frontend/components/command-palette.tsx`
+  - Fetches `/api/products`, `/api/articles`, `/api/agents` on first open and caches in memory
+  - Renders a modal overlay with a search input and grouped results (Repos / Articles / Agents)
+  - Keyboard navigation: arrow keys to move, Enter to navigate, Escape to close
+  - Result types: repo → opens GitHub URL, article → opens dev.to URL, agent → navigates to `/agents`
+  - Add to `frontend/app/layout.tsx` so it's available on all pages
+
+  **Acceptance criteria:**
+  - `Cmd+K` / `Ctrl+K` opens palette from any page
+  - Results filter instantly as user types
+  - Keyboard-only navigation works end to end
+  - Closes on Escape or clicking outside
+
+---
+
+- [ ] **DASH-027** · M · `/api/github/profile` endpoint + profile card on Overview
+
+  Add a GitHub profile card to the top of `frontend/app/page.tsx` showing Ollie's GitHub stats.
+
+  **Backend (`backend/main.py`):**
+  - Add `GET /api/github/profile` — calls `gh api /user` and returns: `{ login, name, avatar_url, public_repos, followers, following, bio, company, location }`
+
+  **Frontend (`frontend/app/page.tsx`):**
+  - Add a compact profile card at the very top of the overview page
+  - Shows: avatar (round, 48px), name, login, bio, location, follower/following counts
+  - Dark card, same style as existing cards
+
+  **Acceptance criteria:**
+  - Profile card visible on Overview with real GitHub data
+  - Graceful empty state if `gh` not available
+  - Avatar loads from GitHub CDN
+
+---
+
+- [ ] **DASH-028** · M · Backend caching layer with TTL
+
+  The backend currently fetches live on every request. Add a simple in-memory TTL cache to avoid redundant API calls.
+
+  **Backend (`backend/main.py`):**
+  - Implement a `TTLCache` class (pure Python, no new deps): `cache.get(key)`, `cache.set(key, value, ttl_seconds)`
+  - Apply cache to: `/api/products` (TTL 120s), `/api/articles` (TTL 120s), `/api/metrics` (TTL 60s), `/api/ci` (TTL 60s), `/api/github/profile` (TTL 300s)
+  - Add `GET /api/cache/status` that returns `{ keys: [{ key, expires_in_s }] }` for debugging
+  - Log cache hits to console: `[cache] HIT /api/products`
+
+  **Acceptance criteria:**
+  - Repeated requests within TTL return cached data (verify via `[cache] HIT` log)
+  - Cache expires correctly after TTL
+  - `/api/cache/status` lists all live cache keys
+
+---
+
+### P2 — Nice-to-have
+
+- [ ] **DASH-029** · S · "Last updated" timestamps on all data cards
+
+  Each data card (repos, articles, agents, metrics) should show when data was last fetched.
+
+  **Frontend only:**
+  - Add a `useFetchWithTimestamp` hook (`frontend/hooks/use-fetch-with-timestamp.ts`) that wraps `fetch`, records `fetchedAt: Date`, and returns it alongside the data
+  - Display a subtle "Updated X ago" line at the bottom of each card / section header (e.g. "Updated 2 min ago")
+  - Auto-updates every 30 s via `setInterval` (relative time only, no re-fetch)
+
+  **Acceptance criteria:**
+  - "Updated X ago" visible on Overview, Products, Content, Agents, Metrics pages
+  - Timestamp ticks forward in real time without re-fetching data
+  - Shows "Just now" for < 10 s
+
+---
+
+- [ ] **DASH-030** · S · Repo README preview on hover/expand
+
+  On the Products page, add an expandable README preview per repo.
+
+  **Backend (`backend/main.py`):**
+  - Add `GET /api/products/{repo}/readme` — calls `gh api /repos/ollieb89/{repo}/readme` and returns `{ content: string }` (base64-decoded, truncated to 2000 chars)
+
+  **Frontend (`frontend/app/products/page.tsx`):**
+  - Add an expand toggle button (chevron) to each repo card
+  - On expand, fetch `/api/products/{repo}/readme` and render content in a `<pre>` block inside the card
+  - Show a skeleton while loading, "No README" if empty
+
+  **Acceptance criteria:**
+  - README loads on demand (not on page load)
+  - Renders raw markdown text in monospace (no full markdown parser needed)
+  - Card expands smoothly, collapses back cleanly
+
