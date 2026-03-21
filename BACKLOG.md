@@ -363,7 +363,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-023** · M · Notifications / events panel
+- [x] **DASH-023** · M · Notifications / events panel
 
   Surface openclaw system events in the dashboard as a slide-in notification panel.
 
