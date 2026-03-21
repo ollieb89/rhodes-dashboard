@@ -11,9 +11,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse as SSEStreamingResponse
 
-from sse import SSEManager
-
-sse_manager = SSEManager()
+from sse import SSEManager, sse_manager
 
 app = FastAPI(title="Rhodes Command Center API")
 
@@ -1135,11 +1133,16 @@ async def sse_events(request: Request):
     """Stream real-time events to the client via Server-Sent Events."""
     from fastapi.responses import StreamingResponse
 
+    sub_id, queue = sse_manager.subscribe()
+
     async def event_generator():
-        async for message in sse_manager.subscribe():
-            if await request.is_disconnected():
-                break
-            yield message
+        try:
+            async for message in sse_manager.event_stream(sub_id, queue):
+                if await request.is_disconnected():
+                    break
+                yield message
+        finally:
+            sse_manager.unsubscribe(sub_id)
 
     return StreamingResponse(
         event_generator(),

@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 
-interface SSEEvent {
+export interface SSEEvent {
   type: string;
   data: unknown;
 }
 
-interface UseSSEReturn {
+export interface UseSSEReturn {
   connected: boolean;
   lastEvent: SSEEvent | null;
 }
@@ -15,7 +15,19 @@ interface UseSSEReturn {
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 3000;
 
-export function useSSE(sseUrl: string): UseSSEReturn {
+/**
+ * EventSource hook with automatic reconnection.
+ *
+ * @param sseUrl - SSE endpoint URL
+ * @param eventTypes - Optional list of named event types to track.
+ *   Named SSE events (with `event: X\n`) do not fire `onmessage`; they must
+ *   be subscribed with `addEventListener`. Pass the event types you want to
+ *   capture so they appear in `lastEvent`.
+ */
+export function useSSE(
+  sseUrl: string,
+  eventTypes: string[] = []
+): UseSSEReturn {
   const [connected, setConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<SSEEvent | null>(null);
   const retriesRef = useRef(0);
@@ -47,46 +59,34 @@ export function useSSE(sseUrl: string): UseSSEReturn {
 
         retriesRef.current += 1;
         if (retriesRef.current >= MAX_RETRIES) {
-          // Max retries reached — stop reconnecting
+          // Max retries reached — stop reconnecting, stay disconnected
           return;
         }
         timeoutRef.current = setTimeout(connect, RETRY_DELAY_MS);
       };
 
+      // Generic unnamed messages
       es.onmessage = (event) => {
         if (!mountedRef.current) return;
         try {
-          const data = JSON.parse(event.data);
-          setLastEvent({ type: "message", data });
+          setLastEvent({ type: "message", data: JSON.parse(event.data) });
         } catch {
           setLastEvent({ type: "message", data: event.data });
         }
       };
 
-      // Proxy named events via a generic listener approach.
-      // We handle named events by wrapping with a custom event proxy on the
-      // EventSource. Named events (with `event: X` in SSE) don't fire onmessage,
-      // so we listen to the raw EventSource events via a message-level proxy.
-      // Note: EventSource only allows adding listeners by name; we use a
-      // wildcard approach by overriding addEventListener on the EventSource.
-      const originalAddEventListener = es.addEventListener.bind(es);
-      // Intercept any named event that is dispatched on this EventSource
-      // by listening for the underlying MessageEvent.
-      // Since we can't enumerate SSE event types in advance, we proxy by
-      // patching dispatchEvent.
-      const originalDispatchEvent = es.dispatchEvent.bind(es);
-      es.dispatchEvent = (event: Event): boolean => {
-        if (mountedRef.current && event.type !== "open" && event.type !== "error" && event.type !== "message") {
+      // Named event types
+      for (const type of eventTypes) {
+        es.addEventListener(type, (event) => {
+          if (!mountedRef.current) return;
           const msgEvent = event as MessageEvent;
           try {
-            const data = JSON.parse(msgEvent.data);
-            setLastEvent({ type: event.type, data });
+            setLastEvent({ type, data: JSON.parse(msgEvent.data) });
           } catch {
-            setLastEvent({ type: event.type, data: (event as MessageEvent).data });
+            setLastEvent({ type, data: msgEvent.data });
           }
-        }
-        return originalDispatchEvent(event);
-      };
+        });
+      }
     }
 
     connect();
@@ -100,6 +100,7 @@ export function useSSE(sseUrl: string): UseSSEReturn {
       sourceRef.current?.close();
       sourceRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sseUrl]);
 
   return { connected, lastEvent };
