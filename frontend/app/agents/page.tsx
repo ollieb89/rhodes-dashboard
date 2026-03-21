@@ -211,7 +211,7 @@ export default function AgentsPage() {
 
       {/* Column labels */}
       {!loading && agents.length > 0 && (
-        <div className="grid grid-cols-[1fr_130px_90px_90px_auto] gap-4 px-4 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+        <div className="hidden md:grid grid-cols-[1fr_130px_90px_90px_auto] gap-4 px-4 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
           <span>Name</span>
           <span>Schedule</span>
           <span>Status</span>
@@ -244,7 +244,7 @@ export default function AgentsPage() {
               <Card key={agent.id} className="bg-zinc-900 border-zinc-800">
                 <CardContent className="px-4 py-3 space-y-2">
                   {/* Main row */}
-                  <div className="grid grid-cols-[1fr_130px_90px_90px_auto] gap-4 items-center">
+                  <div className="flex flex-col gap-2 md:grid md:grid-cols-[1fr_130px_90px_90px_auto] md:gap-4 md:items-center">
                     {/* Name */}
                     <span className="text-sm text-zinc-200 font-medium truncate">
                       {agent.name || agent.id}

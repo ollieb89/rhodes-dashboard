@@ -151,7 +151,7 @@ export default function ContentPage() {
       </div>
 
       {/* Summary row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-16 bg-zinc-800 rounded-xl" />

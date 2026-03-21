@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useKeyboardNav } from "@/hooks/use-keyboard-nav";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Package,
@@ -10,6 +11,8 @@ import {
   Bot,
   BarChart3,
   Zap,
+  Menu,
+  X,
 } from "lucide-react";
 
 const nav = [
@@ -22,12 +25,27 @@ const nav = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
   useKeyboardNav();
 
-  return (
-    <aside className="fixed left-0 top-0 h-full w-56 bg-zinc-900 border-r border-zinc-800 flex flex-col z-20">
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  // Close on ESC
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  const sidebarContent = (
+    <>
       {/* Brand */}
-      <div className="px-4 py-5 border-b border-zinc-800">
+      <div className="px-4 py-5 border-b border-zinc-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-md bg-violet-600 flex items-center justify-center">
             <Zap className="w-4 h-4 text-white" />
@@ -41,6 +59,14 @@ export function Sidebar() {
             </div>
           </div>
         </div>
+        {/* Close button — mobile only */}
+        <button
+          onClick={() => setOpen(false)}
+          className="md:hidden text-zinc-500 hover:text-zinc-300 p-1 rounded"
+          aria-label="Close menu"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Nav */}
@@ -72,6 +98,36 @@ export function Sidebar() {
       <div className="px-4 py-3 border-t border-zinc-800">
         <p className="text-[10px] text-zinc-600">ollieb89 · local</p>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Hamburger toggle — mobile only */}
+      <button
+        onClick={() => setOpen(true)}
+        className="md:hidden fixed top-8 left-3 z-30 text-zinc-400 hover:text-zinc-200 bg-zinc-900 border border-zinc-800 rounded-md p-1.5"
+        aria-label="Open menu"
+      >
+        <Menu className="w-4 h-4" />
+      </button>
+
+      {/* Mobile overlay */}
+      {open && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/60 z-30"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — desktop: always visible; mobile: slide in */}
+      <aside
+        className={`fixed left-0 top-0 h-full w-56 bg-zinc-900 border-r border-zinc-800 flex flex-col z-40 transition-transform duration-200
+          ${open ? "translate-x-0" : "-translate-x-full"}
+          md:translate-x-0`}
+      >
+        {sidebarContent}
+      </aside>
+    </>
   );
 }
