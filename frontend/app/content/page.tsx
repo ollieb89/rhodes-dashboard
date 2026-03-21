@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, MessageSquare, Eye, ExternalLink, TrendingUp, Search } from "lucide-react";
+import { Heart, MessageSquare, Eye, ExternalLink, TrendingUp, Search, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +43,43 @@ function timeAgo(iso: string): string {
   const months = Math.floor(days / 30);
   if (months < 12) return `${months}mo ago`;
   return `${Math.floor(months / 12)}y ago`;
+}
+
+
+function escapeCsv(val: string | number | null | undefined): string {
+  const s = String(val ?? "");
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function downloadArticlesCsv(articles: Article[]) {
+  const headers = ["Title", "Description", "Status", "Views", "Reactions", "Comments", "Reading Time (min)", "Tags", "Published At", "URL"];
+  const lines = [
+    headers.join(","),
+    ...articles.map((a) =>
+      [
+        escapeCsv(a.title),
+        escapeCsv(a.description),
+        escapeCsv(a.published ? "published" : "draft"),
+        a.page_views_count,
+        a.positive_reactions_count,
+        a.comments_count,
+        a.reading_time_minutes,
+        escapeCsv((a.tag_list ?? []).join("; ")),
+        escapeCsv(a.published_at),
+        escapeCsv(a.url),
+      ].join(",")
+    ),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "articles.csv";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function ContentPage() {
@@ -149,6 +186,19 @@ export default function ContentPage() {
         </TabsList>
 
         <TabsContent value="devto" className="mt-4 space-y-3">
+          {!loading && articles.length > 0 && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadArticlesCsv(articles)}
+                className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 text-xs gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export CSV
+              </Button>
+            </div>
+          )}
           {loading
             ? Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-24 bg-zinc-800 rounded-xl" />

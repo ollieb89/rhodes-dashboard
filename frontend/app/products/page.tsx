@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, GitFork, ExternalLink, Package, ArrowUpDown } from "lucide-react";
+import { Star, GitFork, ExternalLink, Package, ArrowUpDown, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,6 +48,40 @@ function sortRepos(repos: Repo[], key: SortKey): Repo[] {
   });
 }
 
+function escapeCsv(val: string | number | null | undefined): string {
+  const s = String(val ?? "");
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function downloadCsv(rows: Repo[]) {
+  const headers = ["Rank", "Name", "Description", "Stars", "Forks", "Language", "Created", "URL"];
+  const lines = [
+    headers.join(","),
+    ...rows.map((r, i) =>
+      [
+        i + 1,
+        escapeCsv(r.name),
+        escapeCsv(r.description),
+        r.stargazerCount,
+        r.forkCount,
+        escapeCsv(r.primaryLanguage?.name ?? ""),
+        escapeCsv(r.createdAt),
+        escapeCsv(r.url),
+      ].join(",")
+    ),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "repos.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ProductsPage() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +121,17 @@ export default function ProductsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {!loading && sorted.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadCsv(sorted)}
+              className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 text-xs gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export CSV
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
