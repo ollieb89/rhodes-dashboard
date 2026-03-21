@@ -441,7 +441,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P1 — Important
 
-- [ ] **DASH-026** · M · Global search (⌘K command palette)
+- [x] **DASH-026** · M · Global search (⌘K command palette)
 
   Add a command palette triggered by `Cmd+K` / `Ctrl+K` that searches across repos, articles, and agents in real time.
 
