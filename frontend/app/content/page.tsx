@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const API = "http://localhost:8521";
 
@@ -72,6 +73,7 @@ export default function ContentPage() {
   );
 
   return (
+    <ErrorBoundary>
     <div className="space-y-5 max-w-5xl">
       <div>
         <h1 className="text-xl font-semibold text-zinc-100">Content</h1>
@@ -270,5 +272,6 @@ export default function ContentPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </ErrorBoundary>
   );
 }

@@ -7,6 +7,7 @@ import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const API = "http://localhost:8521";
 const REFRESH_INTERVAL = 30000; // 30 seconds
@@ -122,6 +123,7 @@ export default function OverviewPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="space-y-6 max-w-6xl">
       <div className="flex items-center justify-between">
         <div>
@@ -366,5 +368,6 @@ export default function OverviewPage() {
         </Card>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

@@ -22,6 +22,7 @@ import {
   ExternalLink,
   TrendingUp,
 } from "lucide-react";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const API = "http://localhost:8521";
 const REFRESH_INTERVAL = 60000;
@@ -158,6 +159,7 @@ export default function MetricsPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="space-y-6 max-w-6xl">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -384,5 +386,6 @@ export default function MetricsPage() {
         </Card>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

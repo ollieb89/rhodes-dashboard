@@ -5,6 +5,7 @@ import { Bot, Clock, RefreshCw, Play } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const API = "http://localhost:8521";
 
@@ -107,6 +108,7 @@ export default function AgentsPage() {
   };
 
   return (
+    <ErrorBoundary>
     <div className="space-y-5 max-w-5xl">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -240,5 +242,6 @@ export default function AgentsPage() {
         Last refreshed: {new Date(lastRefresh).toLocaleTimeString()} · auto-refreshes every 30 s
       </p>
     </div>
+    </ErrorBoundary>
   );
 }

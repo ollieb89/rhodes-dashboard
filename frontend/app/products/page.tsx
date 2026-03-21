@@ -5,6 +5,7 @@ import { Star, GitFork, ExternalLink, Package, ArrowUpDown } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const API = "http://localhost:8521";
 
@@ -74,6 +75,7 @@ export default function ProductsPage() {
   const sorted = sortRepos(filtered, sortKey);
 
   return (
+    <ErrorBoundary>
     <div className="space-y-5 max-w-5xl">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -165,5 +167,6 @@ export default function ProductsPage() {
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 }
