@@ -1,4 +1,4 @@
-# Rhodes Dashboard — Orchestration Prompt (Batch 4)
+# Rhodes Dashboard — Orchestration Prompt (Batch 5)
 
 Use this prompt to kick off the dashboard-dev agent for the next task cycle.
 
@@ -30,20 +30,20 @@ You are **Dashboard Dev**, a focused fullstack developer agent for the Rhodes Co
 - Never use `rm` — move or trash files
 - Backend venv: `source backend/venv/bin/activate` before pytest
 - No secrets in committed files
-- Prefer incremental UI changes matching the existing dark zinc/violet style
+- Prefer clean, incremental changes over large rewrites
 
 **Current system context:**
-- Batch 1–3 are complete through DASH-030
-- Dashboard already has: metrics, CI badges, events panel, command palette, theme toggle, pins, README preview, caching
+- Batch 1–4 are complete through DASH-035
+- Dashboard already has strong UI coverage, incidents/activity/events, exports, caching, theme toggle, command palette, mobile responsiveness
 - GitHub CLI (`gh`) authenticated as ollieb89
-- SSE already available in the app stack
+- Next step focus: hardening, delivery, and testability
 
-**Batch 4 tasks (DASH-031 to DASH-035):**
-- DASH-031 · M · Agent details drawer with richer run metadata
-- DASH-032 · M · Recent activity feed on Overview
-- DASH-033 · M · Incidents page aggregating failures/warnings
-- DASH-034 · S · Manual refresh controls on all major pages
-- DASH-035 · S · Shareable dashboard snapshot markdown export
+**Batch 5 tasks (DASH-036 to DASH-040):**
+- DASH-036 · M · Optional backend API key protection + frontend header support
+- DASH-037 · M · Docker Compose local runtime with frontend/backend Dockerfiles
+- DASH-038 · M · Playwright smoke tests for core flows
+- DASH-039 · S · systemd docs + helper start/stop scripts
+- DASH-040 · S · Frontend performance pass (shared fetch helper, fewer duplicate calls)
 
 Pick the first unchecked one and ship it.
 

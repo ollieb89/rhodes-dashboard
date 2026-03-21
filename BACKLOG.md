@@ -646,3 +646,105 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
   - Content reflects current visible overview state
   - Works without backend changes
 
+
+---
+
+## Batch 5 — Hardening, Delivery & Quality
+
+### P1 — Important
+
+- [ ] **DASH-036** · M · Simple access control for backend API
+
+  Add lightweight protection so the dashboard backend is not fully open by default.
+
+  **Backend (`backend/main.py`):**
+  - Add optional env var `DASHBOARD_API_KEY`
+  - If set, require header `x-dashboard-key: <value>` on all `/api/*` routes except `/api/health`
+  - Return `401 { ok: false, error: "unauthorized" }` when missing/invalid
+  - Keep behaviour unchanged if env var is not set
+
+  **Frontend:**
+  - Add support for `NEXT_PUBLIC_DASHBOARD_API_KEY` and attach it to fetch calls when present
+  - Centralize this in a small helper if useful
+
+  **Acceptance criteria:**
+  - Backend is open when no API key configured
+  - Backend rejects unauthenticated requests when key is configured
+  - Frontend still works when matching key is set
+
+---
+
+- [ ] **DASH-037** · M · Docker Compose local runtime
+
+  Add a simple containerized local setup for the dashboard.
+
+  **Repo root:**
+  - Add `docker-compose.yml` with `frontend` and `backend` services
+  - Add `frontend/Dockerfile` and `backend/Dockerfile`
+  - Expose frontend on `3489`, backend on `8521`
+  - Support env file loading for GitHub/dev.to/openclaw-related variables
+
+  **Docs:**
+  - Add a short `README` section: `docker compose up --build`
+
+  **Acceptance criteria:**
+  - `docker compose up --build` starts both services
+  - Frontend can reach backend inside compose
+  - No secrets hardcoded in compose or Dockerfiles
+
+---
+
+- [ ] **DASH-038** · M · Playwright smoke tests for core flows
+
+  Add basic end-to-end coverage for the most important pages.
+
+  **Frontend/testing:**
+  - Install/configure Playwright
+  - Add smoke tests for:
+    - Overview loads
+    - Products page loads and shows repo cards
+    - Content page loads and shows tabs
+    - Agents page loads and renders agents UI
+    - Metrics page loads stat cards
+  - Prefer resilient selectors (`getByRole`, visible headings/text)
+
+  **Acceptance criteria:**
+  - `npx playwright test` runs locally
+  - At least 5 smoke tests exist and pass against local app
+  - Tests are documented briefly in repo docs/package scripts
+
+---
+
+### P2 — Nice-to-have
+
+- [ ] **DASH-039** · S · Systemd service docs + helper scripts
+
+  Make it easy to run the dashboard persistently on Ollie's machine.
+
+  **Repo root / scripts:**
+  - Add `scripts/start-dashboard.sh` to launch backend and frontend with correct PATH/env
+  - Add `scripts/stop-dashboard.sh` if useful
+  - Add `docs/systemd.md` with example user service units for frontend and backend
+
+  **Acceptance criteria:**
+  - Scripts are executable and reference correct project paths/ports
+  - Docs include `systemctl --user enable --now ...` examples
+  - No deployment is performed automatically
+
+---
+
+- [ ] **DASH-040** · S · Performance pass for frontend fetches and rendering
+
+  Do a targeted polish pass on obvious frontend inefficiencies.
+
+  **Frontend:**
+  - Audit pages for duplicated fetches and unnecessary rerenders
+  - Memoize derived lists where helpful (`useMemo`)
+  - Avoid refetching on simple UI interactions where local state is enough
+  - Add a small shared fetch helper with timeout + better error text
+
+  **Acceptance criteria:**
+  - No visible regressions
+  - Fewer duplicate network calls in common navigation flows
+  - Shared fetch helper used in at least 3 pages
+
