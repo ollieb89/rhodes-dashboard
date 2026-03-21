@@ -317,7 +317,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P1 — Important
 
-- [ ] **DASH-021** · L · Live log streaming on Agents page
+- [x] **DASH-021** · L · Live log streaming on Agents page
 
   Add a real-time log tail to `frontend/app/agents/page.tsx`. Use FastAPI's `StreamingResponse` with Server-Sent Events (SSE) — no WebSocket dependency needed.
 
