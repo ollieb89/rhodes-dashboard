@@ -54,7 +54,7 @@ export default function ContentPage() {
       fetch(`${API}/api/hn`).then((r) => r.json()),
     ])
       .then(([artData, hnData]) => {
-        setArticles(artData.articles ?? []);
+        setArticles((artData.articles ?? []).sort((a: Article, b: Article) => (b.page_views_count ?? 0) - (a.page_views_count ?? 0)));
         setHnPosts(hnData.posts ?? []);
       })
       .finally(() => setLoading(false));
@@ -78,6 +78,14 @@ export default function ContentPage() {
         <p className="text-sm text-zinc-500 mt-1">
           Dev.to articles &amp; Hacker News activity
         </p>
+        {!loading && articles.length > 0 && (
+          <p className="text-xs text-zinc-500 mt-2">
+            <span className="text-zinc-300">{totalViews.toLocaleString()}</span> total views
+            {" · "}
+            <span className="text-zinc-300">{totalReactions}</span> reactions across{" "}
+            <span className="text-zinc-300">{articles.length}</span> articles
+          </p>
+        )}
       </div>
 
       {/* Summary row */}
