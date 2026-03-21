@@ -95,7 +95,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-006** · M · Add cron health card to Overview page
+- [x] **DASH-006** · M · Add cron health card to Overview page
 
   Add a "Cron Health" card to `frontend/app/page.tsx` alongside the existing two cards. It should:
   - Fetch from `/api/agents`
@@ -308,3 +308,4 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 - **DASH-001** · S · Fix /api/agents to return structured cron data
 - **DASH-003** · S · Fix overview page agent "Active" count
 - **DASH-005** · M · Build out the Metrics page with real data
+- **DASH-006** · M · Add cron health card to Overview page

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { Package, FileText, Bot, Activity, Clock, RefreshCw } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,7 +154,7 @@ export default function OverviewPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent Repos */}
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader className="pb-3">
@@ -260,6 +261,76 @@ export default function OverviewPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Cron Health */}
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-zinc-300">
+              Cron Health
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 bg-zinc-800 rounded-lg mb-2" />
+              ))
+            ) : agents.length === 0 ? (
+              <p className="text-sm text-zinc-500 py-4 text-center">
+                No agents found — is openclaw installed?
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {agents.slice(0, 6).map((agent, i) => {
+                  const name = agent.name || agent.id || `Agent ${i + 1}`;
+                  const status = (agent.status || "unknown").toLowerCase();
+                  const schedule = agent.schedule || "";
+                  const badgeClass =
+                    status === "active" || status === "running"
+                      ? "bg-green-500/20 text-green-400"
+                      : status === "paused"
+                      ? "bg-amber-500/20 text-amber-400"
+                      : "bg-zinc-700/50 text-zinc-400";
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between px-3 py-2 rounded-lg bg-zinc-800/50"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-200 truncate">
+                          {name}
+                        </p>
+                        {schedule && (
+                          <p className="text-xs text-zinc-500 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {schedule}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs shrink-0 ml-2 ${badgeClass}`}
+                      >
+                        {status}
+                      </span>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center justify-between pt-1">
+                  <p className="text-xs text-zinc-500">
+                    {agents.filter((a) => a.status === "active" || a.status === "running").length} of {agents.length} agents active
+                  </p>
+                  {agents.length > 6 && (
+                    <Link
+                      href="/agents"
+                      className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                    >
+                      View all →
+                    </Link>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
