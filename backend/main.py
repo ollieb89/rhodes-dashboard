@@ -494,3 +494,72 @@ async def logs_stream():
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ─── DASH-022: CI status endpoint ────────────────────────────────────────────
+
+_ci_cache: dict = {"data": None, "expires": 0.0}
+
+
+async def _fetch_ci_for_repo(repo_name: str) -> tuple[str, dict | None]:
+    """Fetch latest CI run for a single repo. Returns (repo_name, run_data|None)."""
+    try:
+        output = await asyncio.to_thread(
+            run,
+            [
+                "gh", "run", "list",
+                "--repo", f"ollieb89/{repo_name}",
+                "--json", "status,conclusion,name,headBranch,createdAt,url",
+                "--limit", "1",
+            ],
+        )
+        runs = json.loads(output) if output else []
+        if runs:
+            r = runs[0]
+            return repo_name, {
+                "status": r.get("status", ""),
+                "conclusion": r.get("conclusion", ""),
+                "name": r.get("name", ""),
+                "branch": r.get("headBranch", ""),
+                "url": r.get("url", ""),
+            }
+    except Exception:
+        pass
+    return repo_name, None
+
+
+@app.get("/api/ci")
+async def get_ci():
+    """Return latest CI run per repo. Cached for 60 s."""
+    now = time.time()
+    if _ci_cache["data"] is not None and now < _ci_cache["expires"]:
+        return _ci_cache["data"]
+
+    # Get repo list
+    try:
+        output = await asyncio.to_thread(
+            run,
+            ["gh", "repo", "list", "ollieb89", "--json", "name", "-L", "50"],
+        )
+        repos = json.loads(output) if output else []
+        repo_names = [r["name"] for r in repos]
+    except Exception as e:
+        return {"runs": {}, "error": str(e)}
+
+    results = await asyncio.gather(
+        *[_fetch_ci_for_repo(name) for name in repo_names],
+        return_exceptions=True,
+    )
+
+    runs: dict = {}
+    for result in results:
+        if isinstance(result, Exception):
+            continue
+        repo_name, run_data = result
+        if run_data:
+            runs[repo_name] = run_data
+
+    data = {"runs": runs}
+    _ci_cache["data"] = data
+    _ci_cache["expires"] = now + 60.0
+    return data
