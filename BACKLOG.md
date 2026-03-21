@@ -140,7 +140,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-009** · M · Add sparkline trend charts to Overview stat cards
+- [x] **DASH-009** · M · Add sparkline trend charts to Overview stat cards
 
   Using the history data from DASH-008's `/api/history`, add small sparkline charts beneath the stat cards on the overview page. Each card (Repos, Articles, Agents) should show a 7-day trend line.
 
