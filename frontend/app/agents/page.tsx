@@ -1,7 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Bot, Clock, RefreshCw, Play, PauseCircle, PlayCircle } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import {
+  Bot,
+  Clock,
+  RefreshCw,
+  Play,
+  PauseCircle,
+  PlayCircle,
+  ChevronDown,
+  ChevronUp,
+  Pause,
+  Trash2,
+  Terminal,
+} from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 
 const API = "http://localhost:8521";
+const MAX_LOG_LINES = 200;
 
 interface Agent {
   id: string;
@@ -18,7 +31,6 @@ interface Agent {
   last_run: string | null;
   next_run: string | null;
 }
-
 
 interface HistorySnapshot {
   timestamp: string;
@@ -51,6 +63,135 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function LogPanel() {
+  const [open, setOpen] = useState(false);
+  const [lines, setLines] = useState<string[]>([]);
+  const [paused, setPaused] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const pausedRef = useRef(false);
+  const esRef = useRef<EventSource | null>(null);
+  const preRef = useRef<HTMLPreElement>(null);
+  const linesRef = useRef<string[]>([]);
+
+  const appendLine = useCallback((line: string) => {
+    if (pausedRef.current) return;
+    linesRef.current = [...linesRef.current, line].slice(-MAX_LOG_LINES);
+    setLines([...linesRef.current]);
+  }, []);
+
+  const connect = useCallback(() => {
+    if (esRef.current) {
+      esRef.current.close();
+    }
+    const es = new EventSource(`${API}/api/logs/stream`);
+    esRef.current = es;
+    setConnected(false);
+    es.onopen = () => setConnected(true);
+    es.onmessage = (e) => {
+      setConnected(true);
+      appendLine(e.data);
+    };
+    es.onerror = () => {
+      setConnected(false);
+      es.close();
+      setTimeout(() => {
+        if (esRef.current === es) connect();
+      }, 5000);
+    };
+  }, [appendLine]);
+
+  useEffect(() => {
+    if (!open) return;
+    connect();
+    return () => {
+      esRef.current?.close();
+      esRef.current = null;
+      setConnected(false);
+    };
+  }, [open, connect]);
+
+  useEffect(() => {
+    if (!paused && preRef.current) {
+      preRef.current.scrollTop = preRef.current.scrollHeight;
+    }
+  }, [lines, paused]);
+
+  const togglePause = () => {
+    const next = !paused;
+    setPaused(next);
+    pausedRef.current = next;
+  };
+
+  const clearLogs = () => {
+    linesRef.current = [];
+    setLines([]);
+  };
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-zinc-800/50 transition-colors"
+      >
+        <Terminal className="w-4 h-4 text-zinc-400" />
+        <span className="text-sm font-medium text-zinc-300">Live Logs</span>
+        {open && (
+          <span
+            className={`ml-2 w-2 h-2 rounded-full shrink-0 ${connected ? "bg-green-500 animate-pulse" : "bg-zinc-600"}`}
+            title={connected ? "Connected" : "Connecting..."}
+          />
+        )}
+        <span className="ml-auto text-xs text-zinc-500">
+          {open ? "cron run history via SSE" : "click to expand"}
+        </span>
+        {open ? (
+          <ChevronUp className="w-4 h-4 text-zinc-500" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-zinc-500" />
+        )}
+      </button>
+      {open && (
+        <>
+          <div className="flex items-center gap-2 px-4 py-2 border-t border-zinc-800 bg-zinc-900/80">
+            <button
+              onClick={togglePause}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-colors ${
+                paused
+                  ? "border-green-700/50 text-green-400 hover:border-green-600"
+                  : "border-zinc-700 text-zinc-400 hover:border-amber-700 hover:text-amber-400"
+              }`}
+            >
+              {paused ? <><Play className="w-3 h-3" /> Resume</> : <><Pause className="w-3 h-3" /> Pause</>}
+            </button>
+            <button
+              onClick={clearLogs}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-zinc-700 text-zinc-400 hover:border-red-700 hover:text-red-400 transition-colors"
+            >
+              <Trash2 className="w-3 h-3" /> Clear
+            </button>
+            <span className="ml-auto text-[10px] text-zinc-600">
+              {lines.length} lines / {MAX_LOG_LINES}
+              {paused && <span className="ml-2 text-amber-500 font-medium">PAUSED</span>}
+            </span>
+          </div>
+          <pre
+            ref={preRef}
+            className="h-72 overflow-y-auto font-mono text-[11px] text-green-400/90 bg-zinc-950 p-4 leading-relaxed whitespace-pre-wrap break-all"
+          >
+            {lines.length === 0 ? (
+              <span className="text-zinc-600">
+                {connected ? "Waiting for log entries..." : "Connecting to log stream..."}
+              </span>
+            ) : (
+              lines.join("\n")
+            )}
+          </pre>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,10 +214,7 @@ export default function AgentsPage() {
         if (hist) setHistory(hist.snapshots ?? hist ?? []);
       })
       .catch(() => setError("Backend unavailable"))
-      .finally(() => {
-        setLoading(false);
-        setLastRefresh(Date.now());
-      });
+      .finally(() => { setLoading(false); setLastRefresh(Date.now()); });
   }, []);
 
   useEffect(() => {
@@ -92,34 +230,20 @@ export default function AgentsPage() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok !== false) {
         setRunStates((prev) => ({ ...prev, [id]: "success" }));
-        setRunMessages((prev) => ({
-          ...prev,
-          [id]: { text: data.output ?? "Started", state: "success" },
-        }));
+        setRunMessages((prev) => ({ ...prev, [id]: { text: data.output ?? "Started", state: "success" } }));
       } else {
         setRunStates((prev) => ({ ...prev, [id]: "error" }));
-        setRunMessages((prev) => ({
-          ...prev,
-          [id]: { text: data.error ?? `Error ${res.status}`, state: "error" },
-        }));
+        setRunMessages((prev) => ({ ...prev, [id]: { text: data.error ?? `Error ${res.status}`, state: "error" } }));
       }
     } catch {
       setRunStates((prev) => ({ ...prev, [id]: "error" }));
-      setRunMessages((prev) => ({
-        ...prev,
-        [id]: { text: "Network error", state: "error" },
-      }));
+      setRunMessages((prev) => ({ ...prev, [id]: { text: "Network error", state: "error" } }));
     }
     setTimeout(() => {
       setRunStates((prev) => ({ ...prev, [id]: "idle" }));
-      setRunMessages((prev) => {
-        const n = { ...prev };
-        delete n[id];
-        return n;
-      });
+      setRunMessages((prev) => { const n = { ...prev }; delete n[id]; return n; });
     }, 5000);
   };
-
 
   const toggleAgent = async (id: string, currentStatus: string) => {
     const isActive = currentStatus === "active" || currentStatus === "running";
@@ -127,9 +251,7 @@ export default function AgentsPage() {
     setToggleStates((prev) => ({ ...prev, [id]: "loading" }));
     try {
       await fetch(`${API}/api/crons/${id}/${action}`, { method: "POST" });
-    } catch {
-      // best-effort
-    } finally {
+    } catch { /* best-effort */ } finally {
       setToggleStates((prev) => ({ ...prev, [id]: "idle" }));
       load();
     }
@@ -137,210 +259,94 @@ export default function AgentsPage() {
 
   return (
     <ErrorBoundary>
-    <div className="space-y-5 max-w-5xl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-100">Agents</h1>
-          <p className="text-sm text-zinc-500 mt-1">
-            OpenClaw cron jobs ({agents.length} found)
-          </p>
+      <div className="space-y-5 max-w-5xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-zinc-100">Agents</h1>
+            <p className="text-sm text-zinc-500 mt-1">OpenClaw cron jobs ({agents.length} found)</p>
+          </div>
+          <button onClick={load} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
         </div>
-        <button
-          onClick={load}
-          className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
-      </div>
-
-      {/* Error banner */}
-      {error && (
-        <div className="bg-red-950/30 border border-red-800/50 rounded-xl px-4 py-3">
-          <p className="text-sm text-red-400">{error}</p>
-        </div>
-      )}
-
-
-      {/* Agent count over time */}
-      {history.length > 1 && (
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
-              Agent count — 7 day trend
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            <ResponsiveContainer width="100%" height={80}>
-              <LineChart data={history.map((h) => ({
-                value: h.total_agents,
-                label: new Date(h.timestamp).toLocaleDateString("en-GB", { month: "short", day: "numeric" }),
-              }))}>
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 10, fill: "#52525b" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload?.length) {
-                      return (
-                        <div className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200">
-                          {payload[0].payload.label}: {payload[0].value} agents
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#a78bfa"
-                  strokeWidth={1.5}
-                  dot={{ r: 2, fill: "#a78bfa", strokeWidth: 0 }}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Column labels */}
-      {!loading && agents.length > 0 && (
-        <div className="hidden md:grid grid-cols-[1fr_130px_90px_90px_auto] gap-4 px-4 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-          <span>Name</span>
-          <span>Schedule</span>
-          <span>Status</span>
-          <span>Last Run</span>
-          <span>Actions</span>
-        </div>
-      )}
-
-      {/* Content */}
-      {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 bg-zinc-800 rounded-xl" />
-          ))}
-        </div>
-      ) : agents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl">
-          <Bot className="w-8 h-8 mb-2" />
-          <p className="text-sm">No cron jobs found</p>
-          <p className="text-xs mt-1 text-zinc-600">
-            Run <code className="font-mono">openclaw cron list</code> manually to debug
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {agents.map((agent) => {
-            const runState = runStates[agent.id] ?? "idle";
-            const runMsg = runMessages[agent.id];
-            return (
-              <Card key={agent.id} className="bg-zinc-900 border-zinc-800">
-                <CardContent className="px-4 py-3 space-y-2">
-                  {/* Main row */}
-                  <div className="flex flex-col gap-2 md:grid md:grid-cols-[1fr_130px_90px_90px_auto] md:gap-4 md:items-center">
-                    {/* Name */}
-                    <span className="text-sm text-zinc-200 font-medium truncate">
-                      {agent.name || agent.id}
-                    </span>
-
-                    {/* Schedule */}
-                    <span className="flex items-center gap-1.5 font-mono text-xs text-violet-400">
-                      <Clock className="w-3 h-3 shrink-0" />
-                      {agent.schedule || "—"}
-                    </span>
-
-                    {/* Status */}
-                    <Badge
-                      className={`text-[10px] border-0 w-fit ${statusBadgeClass(agent.status || "")}`}
-                    >
-                      {agent.status || "—"}
-                    </Badge>
-
-                    {/* Last Run */}
-                    <span className="text-xs text-zinc-400">
-                      {timeAgo(agent.last_run)}
-                    </span>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2">
-                      {runMsg && (
-                        <span
-                          className={`text-xs truncate max-w-[120px] ${
-                            runMsg.state === "success" ? "text-green-400" : "text-red-400"
-                          }`}
-                          title={runMsg.text}
-                        >
-                          {runMsg.text}
-                        </span>
-                      )}
-                      <button
-                        onClick={() => runAgent(agent.id)}
-                        disabled={runState === "running"}
-                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:border-violet-700 hover:text-violet-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                      >
-                        {runState === "running" ? (
-                          <RefreshCw className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Play className="w-3 h-3" />
-                        )}
-                        {runState === "running" ? "Running…" : "Run now"}
-                      </button>
-                      {(() => {
-                        const isActive = (agent.status || "").toLowerCase() === "active" || (agent.status || "").toLowerCase() === "running";
-                        const toggling = toggleStates[agent.id] === "loading";
-                        return (
-                          <button
-                            onClick={() => toggleAgent(agent.id, agent.status || "")}
-                            disabled={toggling}
-                            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap ${
-                              isActive
-                                ? "border-amber-700/50 text-amber-400 hover:border-amber-600 hover:bg-amber-950/20"
-                                : "border-green-700/50 text-green-400 hover:border-green-600 hover:bg-green-950/20"
-                            }`}
-                          >
-                            {toggling ? (
-                              <RefreshCw className="w-3 h-3 animate-spin" />
-                            ) : isActive ? (
-                              <PauseCircle className="w-3 h-3" />
-                            ) : (
-                              <PlayCircle className="w-3 h-3" />
-                            )}
-                            {toggling ? "…" : isActive ? "Disable" : "Enable"}
-                          </button>
-                        );
-                      })()}
+        {error && (
+          <div className="bg-red-950/30 border border-red-800/50 rounded-xl px-4 py-3">
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
+        {history.length > 1 && (
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader className="pb-2 pt-4 px-5">
+              <CardTitle className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Agent count — 7 day trend</CardTitle>
+            </CardHeader>
+            <CardContent className="px-5 pb-4">
+              <ResponsiveContainer width="100%" height={80}>
+                <LineChart data={history.map((h) => ({ value: h.total_agents, label: new Date(h.timestamp).toLocaleDateString("en-GB", { month: "short", day: "numeric" }) }))}>
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#52525b" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={({ active, payload }) => active && payload?.length ? <div className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200">{payload[0].payload.label}: {payload[0].value} agents</div> : null} />
+                  <Line type="monotone" dataKey="value" stroke="#a78bfa" strokeWidth={1.5} dot={{ r: 2, fill: "#a78bfa", strokeWidth: 0 }} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+        {!loading && agents.length > 0 && (
+          <div className="hidden md:grid grid-cols-[1fr_130px_90px_90px_auto] gap-4 px-4 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+            <span>Name</span><span>Schedule</span><span>Status</span><span>Last Run</span><span>Actions</span>
+          </div>
+        )}
+        {loading ? (
+          <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 bg-zinc-800 rounded-xl" />)}</div>
+        ) : agents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl">
+            <Bot className="w-8 h-8 mb-2" />
+            <p className="text-sm">No cron jobs found</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {agents.map((agent) => {
+              const runState = runStates[agent.id] ?? "idle";
+              const runMsg = runMessages[agent.id];
+              const isActive = (agent.status || "").toLowerCase() === "active" || (agent.status || "").toLowerCase() === "running";
+              const toggling = toggleStates[agent.id] === "loading";
+              return (
+                <Card key={agent.id} className="bg-zinc-900 border-zinc-800">
+                  <CardContent className="px-4 py-3 space-y-2">
+                    <div className="flex flex-col gap-2 md:grid md:grid-cols-[1fr_130px_90px_90px_auto] md:gap-4 md:items-center">
+                      <span className="text-sm text-zinc-200 font-medium truncate">{agent.name || agent.id}</span>
+                      <span className="flex items-center gap-1.5 font-mono text-xs text-violet-400">
+                        <Clock className="w-3 h-3 shrink-0" />{agent.schedule || "—"}
+                      </span>
+                      <Badge className={`text-[10px] border-0 w-fit ${statusBadgeClass(agent.status || "")}`}>{agent.status || "—"}</Badge>
+                      <span className="text-xs text-zinc-400">{timeAgo(agent.last_run)}</span>
+                      <div className="flex items-center gap-2">
+                        {runMsg && <span className={`text-xs truncate max-w-[120px] ${runMsg.state === "success" ? "text-green-400" : "text-red-400"}`} title={runMsg.text}>{runMsg.text}</span>}
+                        <button onClick={() => runAgent(agent.id)} disabled={runState === "running"} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:border-violet-700 hover:text-violet-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+                          {runState === "running" ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                          {runState === "running" ? "Running..." : "Run now"}
+                        </button>
+                        <button onClick={() => toggleAgent(agent.id, agent.status || "")} disabled={toggling} className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap ${isActive ? "border-amber-700/50 text-amber-400 hover:border-amber-600 hover:bg-amber-950/20" : "border-green-700/50 text-green-400 hover:border-green-600 hover:bg-green-950/20"}`}>
+                          {toggling ? <RefreshCw className="w-3 h-3 animate-spin" /> : isActive ? <PauseCircle className="w-3 h-3" /> : <PlayCircle className="w-3 h-3" />}
+                          {toggling ? "..." : isActive ? "Disable" : "Enable"}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Collapsible raw data */}
-                  <details className="group">
-                    <summary className="text-[10px] text-zinc-600 cursor-pointer hover:text-zinc-500 select-none list-none flex items-center gap-1">
-                      <span className="group-open:hidden">▶</span>
-                      <span className="hidden group-open:inline">▼</span>
-                      Raw data
-                    </summary>
-                    <pre className="mt-1.5 text-[10px] text-zinc-500 font-mono whitespace-pre-wrap break-all bg-zinc-800/50 rounded-lg p-2.5">
-                      {JSON.stringify(agent, null, 2)}
-                    </pre>
-                  </details>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      <p className="text-xs text-zinc-600">
-        Last refreshed: {new Date(lastRefresh).toLocaleTimeString()} · auto-refreshes every 30 s
-      </p>
-    </div>
+                    <details className="group">
+                      <summary className="text-[10px] text-zinc-600 cursor-pointer hover:text-zinc-500 select-none list-none flex items-center gap-1">
+                        <span className="group-open:hidden">▶</span><span className="hidden group-open:inline">▼</span> Raw data
+                      </summary>
+                      <pre className="mt-1.5 text-[10px] text-zinc-500 font-mono whitespace-pre-wrap break-all bg-zinc-800/50 rounded-lg p-2.5">{JSON.stringify(agent, null, 2)}</pre>
+                    </details>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+        <LogPanel />
+        <p className="text-xs text-zinc-600">Last refreshed: {new Date(lastRefresh).toLocaleTimeString()} · auto-refreshes every 30 s</p>
+      </div>
     </ErrorBoundary>
   );
 }
