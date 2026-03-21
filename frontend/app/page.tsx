@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Package, FileText, Bot, Activity, Clock, RefreshCw, MapPin, Users, Github } from "lucide-react";
+import { Package, FileText, Bot, Activity, Clock, RefreshCw, MapPin, Users, Github, Download } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -145,8 +145,54 @@ export default function OverviewPage() {
   const articlesSpark = toSparkData(history, "total_articles");
   const agentsSpark = toSparkData(history, "total_agents");
 
+  const exportSnapshot = () => {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);
+    const timeStr = now.toLocaleString("en-GB");
+    const activeAgents = agents.filter((a) => a.status === "active" || a.status === "running").length;
+    const topRepo = [...repos].sort((a, b) => b.stargazerCount - a.stargazerCount)[0];
+    const lines: string[] = [
+      "# Rhodes Command Center Snapshot",
+      `**Generated:** ${timeStr}`,
+      `**By:** ${profile?.login ?? "ollieb89"}`,
+      "",
+      "## Overview",
+      "| Metric | Value |",
+      "|--------|-------|",
+      `| Repositories | ${stats?.total_repos ?? repos.length} |`,
+      `| Active agents | ${activeAgents} / ${agents.length} |`,
+      "",
+    ];
+    if (topRepo) {
+      lines.push("## Top Repository");
+      lines.push(`**[${topRepo.name}](${topRepo.url})** - ${topRepo.stargazerCount} stars, ${topRepo.forkCount} forks`);
+      if (topRepo.description) lines.push(`> ${topRepo.description}`);
+      lines.push("");
+    }
+    if (activity.length > 0) {
+      lines.push("## Recent Activity");
+      activity.slice(0, 5).forEach((item) => {
+        const ts = item.timestamp ? new Date(item.timestamp).toLocaleString("en-GB") : "";
+        const link = item.url ? `[${item.title}](${item.url})` : item.title;
+        lines.push(`- **${item.type.toUpperCase()}** ${link}${ts ? ` (${ts})` : ""}`);
+        if (item.text) lines.push(`  ${item.text.slice(0, 100)}`);
+      });
+      lines.push("");
+    }
+    lines.push("---");
+    lines.push(`*Exported from Rhodes Command Center at ${timeStr}*`);
+    const md = lines.join("\n");
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dashboard-snapshot-${dateStr}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (error && loading) {
-    return (
+  return (
       <div className="flex items-center justify-center h-64">
         <p className="text-red-400 text-sm">{error}</p>
       </div>
@@ -170,6 +216,14 @@ export default function OverviewPage() {
               Offline
             </Badge>
           )}
+          <button
+            onClick={exportSnapshot}
+            disabled={loading}
+            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors disabled:opacity-40"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export
+          </button>
           <button
             onClick={() => load(true)}
             className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors"
