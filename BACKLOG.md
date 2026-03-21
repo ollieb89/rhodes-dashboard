@@ -251,7 +251,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-017** · S · Add repo language tags to Products page
+- [x] **DASH-017** · S · Add repo language tags to Products page
 
   Update `GET /api/products` in `backend/main.py` to include `primaryLanguage` in the GitHub CLI `--json` fields list. Display language as a small badge on each repo row using shadcn `Badge`.
 
