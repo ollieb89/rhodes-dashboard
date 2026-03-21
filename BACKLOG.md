@@ -515,7 +515,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-030** · S · Repo README preview on hover/expand
+- [x] **DASH-030** · S · Repo README preview on hover/expand
 
   On the Products page, add an expandable README preview per repo.
 
