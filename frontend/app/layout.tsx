@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
+import { HealthBar } from "@/components/health-bar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +29,8 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} dark`}
     >
-      <body className="bg-zinc-950 text-zinc-100 min-h-screen flex">
+      <body className="bg-zinc-950 text-zinc-100 min-h-screen flex pt-7">
+        <HealthBar />
         <Sidebar />
         <main className="flex-1 min-h-screen overflow-auto p-6 ml-56">
           {children}
