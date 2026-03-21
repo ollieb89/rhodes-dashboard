@@ -341,7 +341,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-022** · M · GitHub Actions CI status on Products page
+- [x] **DASH-022** · M · GitHub Actions CI status on Products page
 
   Show the latest CI run status per repo on `frontend/app/products/page.tsx`.
 
