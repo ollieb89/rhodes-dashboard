@@ -288,7 +288,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-020** · M · Make the dashboard mobile-responsive
+- [x] **DASH-020** · M · Make the dashboard mobile-responsive
 
   The sidebar is currently fixed at `ml-56` which breaks on small screens. Update `frontend/app/layout.tsx` and `frontend/components/sidebar.tsx` to:
   - Collapse sidebar to icon-only at < 768 px breakpoint
