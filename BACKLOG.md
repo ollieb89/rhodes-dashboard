@@ -610,7 +610,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P2 — Nice-to-have
 
-- [ ] **DASH-034** · S · Manual refresh controls on major pages
+- [x] **DASH-034** · S · Manual refresh controls on major pages
 
   Add explicit refresh buttons to Overview, Products, Content, Agents, and Metrics pages.
 
