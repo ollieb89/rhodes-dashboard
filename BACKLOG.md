@@ -733,7 +733,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-040** · S · Performance pass for frontend fetches and rendering
+- [x] **DASH-040** · S · Performance pass for frontend fetches and rendering
 
   Do a targeted polish pass on obvious frontend inefficiencies.
 
