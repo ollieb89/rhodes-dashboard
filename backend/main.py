@@ -70,7 +70,7 @@ async def get_products():
                 "list",
                 "ollieb89",
                 "--json",
-                "name,description,stargazerCount,forkCount,createdAt,url",
+                "name,description,stargazerCount,forkCount,createdAt,url,primaryLanguage",
                 "-L",
                 "50",
             ],

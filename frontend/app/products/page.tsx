@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Star, GitFork, ExternalLink, Package, ArrowUpDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -18,6 +19,7 @@ interface Repo {
   forkCount: number;
   createdAt: string;
   url: string;
+  primaryLanguage: { name: string; color: string } | null;
 }
 
 function timeAgo(iso: string): string {
@@ -141,9 +143,23 @@ export default function ProductsPage() {
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </div>
-                  <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2 mb-3">
+                  <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2 mb-2">
                     {repo.description || "No description"}
                   </p>
+                  {repo.primaryLanguage && (
+                    <div className="mb-2">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-zinc-700 text-zinc-400 py-0 px-1.5 gap-1"
+                      >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full inline-block"
+                          style={{ backgroundColor: repo.primaryLanguage.color ?? "#52525b" }}
+                        />
+                        {repo.primaryLanguage.name}
+                      </Badge>
+                    </div>
+                  )}
                   <div className="flex items-center gap-3 text-xs text-zinc-500">
                     <span className="flex items-center gap-1">
                       <Star className="w-3 h-3" />
