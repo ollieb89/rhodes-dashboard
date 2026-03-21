@@ -128,3 +128,10 @@
     @apply font-sans;
   }
 }
+/* DASH-024: light theme body override */
+html.light body {
+  @apply bg-zinc-100 text-zinc-900;
+}
+html.dark body {
+  @apply bg-zinc-950 text-zinc-100;
+}
