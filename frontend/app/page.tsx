@@ -204,7 +204,7 @@ export default function OverviewPage() {
     <div className="space-y-6 max-w-6xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-100">Overview</h1>
+          <h1 className="text-lg sm:text-xl font-semibold text-zinc-100">Overview</h1>
           <p className="text-sm text-zinc-500 mt-1 flex items-center gap-2">
             <UpdatedAgo fetchedAt={fetchedAt} />
             {refreshing && <RefreshCw className="w-3 h-3 animate-spin inline-block ml-1" />}
@@ -269,7 +269,7 @@ export default function OverviewPage() {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-4 text-xs text-zinc-400 shrink-0">
+              <div className="hidden sm:flex items-center gap-4 text-xs text-zinc-400 shrink-0">
                 <div className="text-center">
                   <p className="font-semibold text-zinc-200">{profile.public_repos}</p>
                   <p className="text-[10px] text-zinc-600">repos</p>
@@ -289,7 +289,7 @@ export default function OverviewPage() {
       )}
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl bg-zinc-800" />

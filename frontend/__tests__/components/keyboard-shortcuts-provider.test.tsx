@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { useKeyboardNav } from "@/hooks/use-keyboard-nav";
+import { KeyboardShortcutsProvider } from "@/components/keyboard-shortcuts-provider";
 
 const push = vi.fn();
 
@@ -8,19 +8,19 @@ vi.mock("next/navigation", () => ({
 }));
 
 function KeyboardNavHarness() {
-  useKeyboardNav();
-
   return (
-    <div>
-      <input aria-label="Plain input" />
-      <textarea aria-label="Plain textarea" />
-      <select aria-label="Plain select" defaultValue="one">
-        <option value="one">One</option>
-      </select>
-      <div aria-label="Editable region" contentEditable suppressContentEditableWarning>
-        Editable region
+    <KeyboardShortcutsProvider>
+      <div>
+        <input aria-label="Plain input" />
+        <textarea aria-label="Plain textarea" />
+        <select aria-label="Plain select" defaultValue="one">
+          <option value="one">One</option>
+        </select>
+        <div aria-label="Editable region" contentEditable suppressContentEditableWarning>
+          Editable region
+        </div>
       </div>
-    </div>
+    </KeyboardShortcutsProvider>
   );
 }
 

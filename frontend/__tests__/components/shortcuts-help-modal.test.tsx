@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Sidebar } from "@/components/sidebar";
+import { KeyboardShortcutsProvider } from "@/components/keyboard-shortcuts-provider";
 
 vi.mock("next/link", () => ({
   default: ({
@@ -32,7 +33,7 @@ vi.mock("next-themes", () => ({
 
 describe("keyboard shortcuts help modal", () => {
   it("opens when question mark is pressed", () => {
-    render(<Sidebar />);
+    render(<KeyboardShortcutsProvider><Sidebar /></KeyboardShortcutsProvider>);
 
     expect(
       screen.queryByRole("dialog", { name: /keyboard shortcuts/i }),
@@ -46,7 +47,7 @@ describe("keyboard shortcuts help modal", () => {
   });
 
   it("closes when escape is pressed", () => {
-    render(<Sidebar />);
+    render(<KeyboardShortcutsProvider><Sidebar /></KeyboardShortcutsProvider>);
 
     fireEvent.keyDown(window, { key: "?" });
     expect(

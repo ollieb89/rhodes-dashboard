@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useKeyboardNav } from "@/hooks/use-keyboard-nav";
+import { NAVIGATION_SHORTCUTS } from "@/lib/shortcuts";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
@@ -11,21 +11,28 @@ import {
 } from "lucide-react";
 
 const nav = [
-  { href: "/", label: "Overview", icon: LayoutDashboard, shortcut: "o" },
-  { href: "/products", label: "Products", icon: Package, shortcut: "p" },
-  { href: "/content", label: "Content", icon: FileText, shortcut: "c" },
-  { href: "/agents", label: "Agents", icon: Bot, shortcut: "a" },
-  { href: "/metrics", label: "Metrics", icon: BarChart3, shortcut: "m" },
-  { href: "/incidents", label: "Incidents", icon: AlertTriangle, shortcut: "i" },
-  { href: "/settings", label: "Settings", icon: Settings, shortcut: "s" },
-];
+  { href: "/", icon: LayoutDashboard },
+  { href: "/products", icon: Package },
+  { href: "/content", icon: FileText },
+  { href: "/agents", icon: Bot },
+  { href: "/metrics", icon: BarChart3 },
+  { href: "/incidents", icon: AlertTriangle },
+  { href: "/settings", icon: Settings },
+].map((item) => {
+  const shortcut = NAVIGATION_SHORTCUTS.find((entry) => entry.href === item.href);
+
+  return {
+    ...item,
+    label: shortcut?.label ?? (item.href === "/settings" ? "Settings" : ""),
+    shortcut: shortcut?.keys[1],
+  };
+});
 
 export function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  useKeyboardNav();
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -38,6 +45,17 @@ export function Sidebar() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+
+  // Body scroll lock when mobile sidebar is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
 
   const isDark = resolvedTheme === "dark";
   const toggleTheme = () => setTheme(isDark ? "light" : "dark");
@@ -57,7 +75,7 @@ export function Sidebar() {
         </div>
         <button
           onClick={() => setOpen(false)}
-          className="md:hidden text-zinc-500 hover:text-zinc-300 p-1 rounded"
+          className="md:hidden text-zinc-500 hover:text-zinc-300 p-2 rounded min-h-11 min-w-11 flex items-center justify-center"
           aria-label="Close menu"
         >
           <X className="w-4 h-4" />
@@ -80,9 +98,11 @@ export function Sidebar() {
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span className="flex-1">{label}</span>
-              <kbd className="hidden group-hover:inline-flex items-center text-[9px] font-mono text-zinc-600 bg-zinc-800 border border-zinc-700 rounded px-1 py-0.5 leading-none">
-                g{shortcut}
-              </kbd>
+              {shortcut && (
+                <kbd className="hidden group-hover:inline-flex items-center text-[9px] font-mono text-zinc-600 bg-zinc-800 border border-zinc-700 rounded px-1 py-0.5 leading-none">
+                  g{shortcut}
+                </kbd>
+              )}
             </Link>
           );
         })}
@@ -110,7 +130,7 @@ export function Sidebar() {
       {/* Hamburger toggle — mobile only */}
       <button
         onClick={() => setOpen(true)}
-        className="md:hidden fixed top-8 left-3 z-30 text-zinc-400 hover:text-zinc-200 bg-zinc-900 border border-zinc-800 rounded-md p-1.5"
+        className="md:hidden fixed top-8 left-3 z-30 text-zinc-400 hover:text-zinc-200 bg-zinc-900 border border-zinc-800 rounded-md p-2 min-h-11 min-w-11 flex items-center justify-center"
         aria-label="Open menu"
       >
         <Menu className="w-4 h-4" />
@@ -119,14 +139,14 @@ export function Sidebar() {
       {/* Mobile overlay */}
       {open && (
         <div
-          className="md:hidden fixed inset-0 bg-black/60 z-30"
+          className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30"
           onClick={() => setOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-full w-56 bg-zinc-900 border-r border-zinc-800 flex flex-col z-40 transition-transform duration-200
+        className={`fixed left-0 top-0 h-full w-56 bg-zinc-900 border-r border-zinc-800 flex flex-col z-50 transition-transform duration-200
           ${open ? "translate-x-0" : "-translate-x-full"}
           md:translate-x-0`}
       >

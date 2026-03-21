@@ -169,7 +169,7 @@ export default function ProductsPage() {
       <div className="space-y-5 max-w-5xl">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-zinc-100">Products</h1>
+            <h1 className="text-lg sm:text-xl font-semibold text-zinc-100">Products</h1>
             <p className="text-sm text-zinc-500 mt-1">GitHub repos for ollieb89 ({repos.length} total)</p>
             <UpdatedAgo fetchedAt={fetchedAt} className="mt-0.5" />
           </div>
@@ -182,7 +182,7 @@ export default function ProductsPage() {
             <Button variant="outline" size="sm" onClick={cycleSort} className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 text-xs gap-1.5">
               <ArrowUpDown className="w-3.5 h-3.5" /> {SORT_LABELS[sortKey]}
             </Button>
-            <input type="text" placeholder="Search repos..." value={search} onChange={(e) => setSearch(e.target.value)} className="bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 text-sm rounded-lg px-3 py-2 outline-none focus:border-violet-500 w-52" />
+            <input type="text" placeholder="Search repos..." value={search} onChange={(e) => setSearch(e.target.value)} className="bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 text-sm rounded-lg px-3 py-2 outline-none focus:border-violet-500 w-full sm:w-52" />
             <button onClick={() => load(true)} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors">
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
             </button>

@@ -39,11 +39,18 @@ const AGENTS_DATA = {
   ],
 };
 
+// The page calls 6 endpoints in parallel via Promise.all:
+// 1. /api/overview, 2. /api/products, 3. /api/agents,
+// 4. /api/history (optional), 5. /api/github/profile (optional), 6. /api/activity (optional)
 function mockFetchSuccess() {
+  const emptyResolve = { ok: false, json: async () => ({}) } as any;
   (global.fetch as ReturnType<typeof vi.fn>)
     .mockResolvedValueOnce({ ok: true, json: async () => OVERVIEW_DATA } as any)
     .mockResolvedValueOnce({ ok: true, json: async () => PRODUCTS_DATA } as any)
-    .mockResolvedValueOnce({ ok: true, json: async () => AGENTS_DATA } as any);
+    .mockResolvedValueOnce({ ok: true, json: async () => AGENTS_DATA } as any)
+    .mockResolvedValueOnce(emptyResolve)   // /api/history
+    .mockResolvedValueOnce(emptyResolve)   // /api/github/profile
+    .mockResolvedValueOnce(emptyResolve);  // /api/activity
 }
 
 beforeEach(() => {

@@ -153,7 +153,7 @@ export default function ContentPage() {
     <ErrorBoundary>
     <div className="space-y-5 max-w-5xl">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-100">Content</h1>
+        <h1 className="text-lg sm:text-xl font-semibold text-zinc-100">Content</h1>
         <p className="text-sm text-zinc-500 mt-1">
           Dev.to articles &amp; Hacker News activity
           <UpdatedAgo fetchedAt={fetchedAt} className="ml-2" />
@@ -172,7 +172,7 @@ export default function ContentPage() {
       </div>
 
       {/* Summary row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-16 bg-zinc-800 rounded-xl" />

@@ -32,11 +32,11 @@ class TestSSEManager:
         mgr = SSEManager()
         _, q1 = mgr.subscribe()
         _, q2 = mgr.subscribe()
-        await mgr.broadcast("update", '{"test": 1}')
+        await mgr.broadcast("update", {"test": 1})
         msg1 = q1.get_nowait()
         msg2 = q2.get_nowait()
         assert "event: update" in msg1
-        assert '{"test": 1}' in msg1
+        assert '"test"' in msg1
         assert msg1 == msg2
 
     async def test_broadcast_drops_full_queues(self):
@@ -46,7 +46,7 @@ class TestSSEManager:
         for i in range(64):
             q.put_nowait(f"msg-{i}")
         assert mgr.subscriber_count == 1
-        await mgr.broadcast("x", "overflow")
+        await mgr.broadcast("x", {"msg": "overflow"})
         # Subscriber should have been removed
         assert mgr.subscriber_count == 0
 

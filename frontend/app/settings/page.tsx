@@ -13,7 +13,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <SettingsIcon className="w-5 h-5 text-violet-400" />
-        <h1 className="text-xl font-semibold">Settings</h1>
+        <h1 className="text-lg sm:text-xl font-semibold">Settings</h1>
       </div>
 
       {/* Connection */}

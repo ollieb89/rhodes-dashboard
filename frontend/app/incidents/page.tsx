@@ -83,7 +83,7 @@ export default function IncidentsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-zinc-100">Incidents</h1>
+            <h1 className="text-lg sm:text-xl font-semibold text-zinc-100">Incidents</h1>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-sm text-zinc-500">Active failures and warnings</p>
               <UpdatedAgo fetchedAt={fetchedAt} />

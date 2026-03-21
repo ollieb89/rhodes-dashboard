@@ -124,11 +124,11 @@ export default function MetricsPage() {
       <div className="space-y-6 max-w-6xl">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-zinc-100">Metrics</h1>
+            <h1 className="text-lg sm:text-xl font-semibold text-zinc-100">Metrics</h1>
             <p className="text-sm text-zinc-500 mt-1">Loading…</p>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl bg-zinc-800" />
           ))}
@@ -145,7 +145,7 @@ export default function MetricsPage() {
   if (error) {
     return (
       <div className="space-y-6 max-w-6xl">
-        <h1 className="text-xl font-semibold text-zinc-100">Metrics</h1>
+        <h1 className="text-lg sm:text-xl font-semibold text-zinc-100">Metrics</h1>
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <p className="text-red-400 text-sm">{error}</p>
           <button
@@ -165,7 +165,7 @@ export default function MetricsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-100">Metrics</h1>
+          <h1 className="text-lg sm:text-xl font-semibold text-zinc-100">Metrics</h1>
           <p className="text-sm text-zinc-500 mt-1">Aggregated stats for repos &amp; content</p>
           <UpdatedAgo fetchedAt={lastUpdated} className="mt-0.5" />
         </div>
@@ -177,7 +177,7 @@ export default function MetricsPage() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Total Stars"
           value={metrics?.total_stars ?? 0}

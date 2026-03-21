@@ -39,6 +39,9 @@ export function useSSE(
     mountedRef.current = true;
     retriesRef.current = 0;
 
+    // If no URL provided, SSE is disabled
+    if (!sseUrl) return;
+
     function connect() {
       if (!mountedRef.current) return;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSSE } from "./use-sse";
 
 export interface FetchState<T> {
   data: T | null;
@@ -22,11 +23,24 @@ function timeAgo(date: Date): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+/**
+ * Derive the SSE URL from a data URL: extract the base URL (origin) + /api/events.
+ * Falls back to "/api/events" if the URL cannot be parsed as absolute.
+ */
+function sseUrlFromDataUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}/api/events`;
+  } catch {
+    return "/api/events";
+  }
+}
+
 export function useFetchWithTimestamp<T>(
   url: string,
   transform?: (raw: unknown) => T,
   intervalMs = 0,
-  /** Optional SSE event type — when SSE is connected, polling is skipped */
+  /** Optional SSE event type. When provided and SSE is connected, polling is skipped. */
   sseEventType?: string
 ): FetchState<T> & { refresh: () => void; sseActive: boolean } {
   const [data, setData] = useState<T | null>(null);
@@ -34,93 +48,61 @@ export function useFetchWithTimestamp<T>(
   const [error, setError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const [updatedAgo, setUpdatedAgo] = useState("just now");
-  const [sseActive, setSseActive] = useState(false);
   const mountedRef = useRef(true);
-  const sseSourceRef = useRef<EventSource | null>(null);
+
+  // SSE integration — only active when sseEventType is provided
+  const sseUrl = sseEventType ? sseUrlFromDataUrl(url) : "";
+  const { connected: sseConnected, lastEvent } = useSSE(
+    sseUrl,
+    sseEventType ? [sseEventType] : []
+  );
+  const sseActive = !!sseEventType && sseConnected;
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
 
-  const applyData = useCallback((raw: unknown) => {
-    if (!mountedRef.current) return;
-    const value = transform ? transform(raw) : (raw as T);
-    setData(value);
-    setError(null);
-    const now = new Date();
-    setFetchedAt(now);
-    setUpdatedAgo("just now");
-  }, [transform]);
-
   const doFetch = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(url);
       const raw = await res.json();
-      applyData(raw);
+      if (!mountedRef.current) return;
+      const value = transform ? transform(raw) : (raw as T);
+      setData(value);
+      setError(null);
+      const now = new Date();
+      setFetchedAt(now);
+      setUpdatedAgo("just now");
     } catch (e) {
       if (!mountedRef.current) return;
       setError(e instanceof Error ? e.message : "Failed to fetch");
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [url, applyData]);
+  }, [url, transform]);
 
-  // SSE connection for real-time updates
-  useEffect(() => {
-    if (!sseEventType) return;
+  // Initial fetch + optional polling
+  // When SSE is connected and sseEventType is provided: skip polling interval
+  // When SSE disconnects (sseActive becomes false): resume polling if intervalMs > 0
+  const usePolling = !sseEventType || !sseConnected;
 
-    const apiUrl = new URL(url).origin;
-    const sseUrl = `${apiUrl}/api/sse`;
-    let es: EventSource;
-
-    try {
-      es = new EventSource(sseUrl);
-      sseSourceRef.current = es;
-    } catch {
-      return;
-    }
-
-    es.addEventListener(sseEventType, (event: MessageEvent) => {
-      if (!mountedRef.current) return;
-      try {
-        const parsed = JSON.parse(event.data);
-        applyData(parsed);
-        setSseActive(true);
-        setLoading(false);
-      } catch {
-        // ignore malformed events
-      }
-    });
-
-    es.onopen = () => {
-      if (mountedRef.current) setSseActive(true);
-    };
-
-    es.onerror = () => {
-      if (mountedRef.current) setSseActive(false);
-      es.close();
-      sseSourceRef.current = null;
-    };
-
-    return () => {
-      es.close();
-      sseSourceRef.current = null;
-      if (mountedRef.current) setSseActive(false);
-    };
-  }, [sseEventType, url, applyData]);
-
-  // Initial fetch + optional polling (skipped when SSE is active)
   useEffect(() => {
     doFetch();
-    if (intervalMs > 0) {
-      const iv = setInterval(() => {
-        if (!sseActive) doFetch();
-      }, intervalMs);
+    if (usePolling && intervalMs > 0) {
+      const iv = setInterval(doFetch, intervalMs);
       return () => clearInterval(iv);
     }
-  }, [doFetch, intervalMs, sseActive]);
+  }, [doFetch, intervalMs, usePolling]);
+
+  // Trigger a refresh when a matching SSE event fires
+  useEffect(() => {
+    if (!sseEventType || !lastEvent) return;
+    if (lastEvent.type === sseEventType) {
+      doFetch();
+    }
+  }, [lastEvent, sseEventType, doFetch]);
 
   // Tick the "X ago" label every 10s without re-fetching
   useEffect(() => {

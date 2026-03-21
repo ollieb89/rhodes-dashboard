@@ -266,7 +266,7 @@ export default function AgentsPage() {
       <div className="space-y-5 max-w-5xl">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-zinc-100">Agents</h1>
+            <h1 className="text-lg sm:text-xl font-semibold text-zinc-100">Agents</h1>
             <p className="text-sm text-zinc-500 mt-1">OpenClaw cron jobs ({agents.length} found)</p>
           </div>
           <button onClick={load} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors">
