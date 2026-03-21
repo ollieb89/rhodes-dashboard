@@ -230,7 +230,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P2 — Nice-to-have
 
-- [ ] **DASH-015** · S · Add keyboard shortcuts for sidebar navigation
+- [x] **DASH-015** · S · Add keyboard shortcuts for sidebar navigation
 
   Add `useEffect`-based keyboard listeners in `frontend/components/sidebar.tsx` (or a new hook `frontend/hooks/use-keyboard-nav.ts`). Shortcuts: `g o` = Overview, `g p` = Products, `g c` = Content, `g a` = Agents, `g m` = Metrics. Use Next.js `router.push()` for navigation.
 
