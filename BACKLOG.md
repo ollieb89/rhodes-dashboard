@@ -261,7 +261,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-018** · M · Add a system health bar to the top of all pages
+- [x] **DASH-018** · M · Add a system health bar to the top of all pages
 
   Add a thin status bar component `frontend/components/health-bar.tsx` that appears at the very top of the layout (above the sidebar content, spanning full width). It polls `GET /api/overview` every 30 s and shows:
   - Green dot + "All systems operational" when data loads fine
