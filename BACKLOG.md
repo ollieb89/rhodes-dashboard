@@ -480,7 +480,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-028** · M · Backend caching layer with TTL
+- [x] **DASH-028** · M · Backend caching layer with TTL
 
   The backend currently fetches live on every request. Add a simple in-memory TTL cache to avoid redundant API calls.
 
