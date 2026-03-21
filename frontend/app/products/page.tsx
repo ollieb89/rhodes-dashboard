@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { UpdatedAgo } from "@/components/updated-ago";
 import { usePins } from "@/hooks/use-pins";
 
 const API = "http://localhost:8521";
@@ -95,12 +96,13 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [ciLoading, setCiLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("stars");
   const { pins, toggle, isPinned } = usePins("repos");
 
   useEffect(() => {
-    fetch(`${API}/api/products`).then((r) => r.json()).then((d) => setRepos(d.repos ?? [])).catch(() => setError("Backend unavailable")).finally(() => setLoading(false));
+    fetch(`${API}/api/products`).then((r) => r.json()).then((d) => { setRepos(d.repos ?? []); setFetchedAt(new Date()); }).catch(() => setError("Backend unavailable")).finally(() => setLoading(false));
     fetch(`${API}/api/ci`).then((r) => r.json()).then((d) => setCiRuns(d.runs ?? {})).catch(() => {}).finally(() => setCiLoading(false));
   }, []);
 
@@ -115,6 +117,7 @@ export default function ProductsPage() {
           <div>
             <h1 className="text-xl font-semibold text-zinc-100">Products</h1>
             <p className="text-sm text-zinc-500 mt-1">GitHub repos for ollieb89 ({repos.length} total)</p>
+            <UpdatedAgo fetchedAt={fetchedAt} className="mt-0.5" />
           </div>
           <div className="flex items-center gap-2">
             {!loading && sorted.length > 0 && (

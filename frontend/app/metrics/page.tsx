@@ -23,6 +23,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { UpdatedAgo } from "@/components/updated-ago";
 
 const API = "http://localhost:8521";
 const REFRESH_INTERVAL = 60000;
@@ -166,6 +167,7 @@ export default function MetricsPage() {
         <div>
           <h1 className="text-xl font-semibold text-zinc-100">Metrics</h1>
           <p className="text-sm text-zinc-500 mt-1">Aggregated stats for repos &amp; content</p>
+          <UpdatedAgo fetchedAt={lastUpdated} className="mt-0.5" />
         </div>
         {lastUpdated && (
           <p className="text-xs text-zinc-600">

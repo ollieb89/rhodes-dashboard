@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { UpdatedAgo } from "@/components/updated-ago";
 
 const API = "http://localhost:8521";
 const REFRESH_INTERVAL = 30000; // 30 seconds
@@ -80,6 +81,7 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const [profile, setProfile] = useState<GitHubProfile | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
@@ -97,6 +99,7 @@ export default function OverviewPage() {
       const prod = await prodRes.json();
       const ag = await agentsRes.json();
       setStats(ov.stats);
+      setFetchedAt(new Date());
       setRepos(
         (prod.repos ?? [])
           .sort(
@@ -144,9 +147,7 @@ export default function OverviewPage() {
         <div>
           <h1 className="text-xl font-semibold text-zinc-100">Overview</h1>
           <p className="text-sm text-zinc-500 mt-1 flex items-center gap-2">
-            {stats?.last_updated
-              ? `Last updated ${timeAgo(stats.last_updated)}`
-              : "Loading…"}
+            <UpdatedAgo fetchedAt={fetchedAt} />
             {refreshing && <RefreshCw className="w-3 h-3 animate-spin inline-block ml-1" />}
           </p>
         </div>

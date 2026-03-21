@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { UpdatedAgo } from "@/components/updated-ago";
 
 const API = "http://localhost:8521";
 const MAX_LOG_LINES = 200;

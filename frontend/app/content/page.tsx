@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { UpdatedAgo } from "@/components/updated-ago";
 import { usePins } from "@/hooks/use-pins";
 
 const API = "http://localhost:8521";
@@ -85,6 +86,7 @@ function downloadArticlesCsv(articles: Article[]) {
 
 export default function ContentPage() {
   const [articles, setArticles] = useState<Article[]>([]);
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const { pins: articlePins, toggle: toggleArticle, isPinned: isArticlePinned } = usePins("articles");
   const [hnPosts, setHnPosts] = useState<HNPost[]>([]);
   const [hnQuery, setHnQuery] = useState("workflow-guardian");
@@ -111,7 +113,7 @@ export default function ContentPage() {
       fetch(`${API}/api/hn?query=${encodeURIComponent(hnQuery)}`).then((r) => r.json()),
     ])
       .then(([artData, hnData]) => {
-        setArticles((artData.articles ?? []).sort((a: Article, b: Article) => (b.page_views_count ?? 0) - (a.page_views_count ?? 0)));
+        setArticles((artData.articles ?? []).sort((a: Article, b: Article) => (b.page_views_count ?? 0) - (a.page_views_count ?? 0))); setFetchedAt(new Date());
         setHnPosts(hnData.posts ?? []);
       })
       .finally(() => setLoading(false));
@@ -142,6 +144,7 @@ export default function ContentPage() {
         <h1 className="text-xl font-semibold text-zinc-100">Content</h1>
         <p className="text-sm text-zinc-500 mt-1">
           Dev.to articles &amp; Hacker News activity
+          <UpdatedAgo fetchedAt={fetchedAt} className="ml-2" />
         </p>
         {!loading && articles.length > 0 && (
           <p className="text-xs text-zinc-500 mt-2">
