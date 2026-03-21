@@ -694,7 +694,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-038** · M · Playwright smoke tests for core flows
+- [x] **DASH-038** · M · Playwright smoke tests for core flows
 
   Add basic end-to-end coverage for the most important pages.
 
