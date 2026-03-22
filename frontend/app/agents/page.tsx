@@ -15,7 +15,7 @@ import {
   Terminal,
   Info,
 } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { LineChart, Line, BarChart, Bar, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,6 +38,14 @@ interface Agent {
 interface HistorySnapshot {
   timestamp: string;
   total_agents: number;
+}
+
+interface TimelineRun {
+  id: string;
+  name: string;
+  started_at: string;
+  ended_at: string;
+  status: string;
 }
 
 type RunState = "idle" | "running" | "success" | "error";
@@ -64,6 +72,92 @@ function timeAgo(iso: string | null): string {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+const TIMELINE_HOURS = [
+  { label: "6h", value: 6 },
+  { label: "24h", value: 24 },
+  { label: "7d", value: 168 },
+];
+
+function statusColor(status: string): string {
+  if (status === "success") return "#22c55e";
+  if (status === "error") return "#ef4444";
+  if (status === "running" || status === "in-progress") return "#f59e0b";
+  return "#52525b";
+}
+
+function TimelineChart({ runs, hours }: { runs: TimelineRun[]; hours: number }) {
+  const windowStartMs = Date.now() - hours * 3600 * 1000;
+
+  const chartData = runs.map((run) => {
+    const startMs = new Date(run.started_at).getTime();
+    const endMs = new Date(run.ended_at).getTime();
+    return {
+      name: run.name,
+      gap: Math.max(0, startMs - windowStartMs),
+      duration: Math.max(60_000, endMs - startMs),
+      status: run.status,
+      startMs,
+      endMs,
+    };
+  });
+
+  const totalMs = hours * 3600 * 1000;
+
+  const formatTick = (ms: number) => {
+    const d = new Date(windowStartMs + ms);
+    if (hours <= 24) return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString("en-GB", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <ResponsiveContainer width="100%" height={Math.max(80, chartData.length * 28 + 40)}>
+      <BarChart layout="vertical" data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 20 }}>
+        <XAxis
+          type="number"
+          domain={[0, totalMs]}
+          tickFormatter={formatTick}
+          tick={{ fontSize: 10, fill: "#71717a" }}
+          axisLine={false}
+          tickLine={false}
+          tickCount={5}
+        />
+        <YAxis
+          type="category"
+          dataKey="name"
+          tick={{ fontSize: 11, fill: "#a1a1aa" }}
+          axisLine={false}
+          tickLine={false}
+          width={130}
+        />
+        <Tooltip
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null;
+            const d = payload.find((p) => p.dataKey === "duration")?.payload;
+            if (!d) return null;
+            return (
+              <div className="bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-xs space-y-1 shadow-lg">
+                <p className="text-zinc-200 font-medium">{d.name}</p>
+                <p className="text-zinc-400">Start: {new Date(d.startMs).toLocaleTimeString()}</p>
+                <p className="text-zinc-400">End: {new Date(d.endMs).toLocaleTimeString()}</p>
+                <p className="text-zinc-400">
+                  Status:{" "}
+                  <span style={{ color: statusColor(d.status) }}>{d.status}</span>
+                </p>
+              </div>
+            );
+          }}
+        />
+        <Bar dataKey="gap" stackId="a" fill="transparent" isAnimationActive={false} />
+        <Bar dataKey="duration" stackId="a" isAnimationActive={false} radius={[2, 2, 2, 2]}>
+          {chartData.map((entry, i) => (
+            <Cell key={i} fill={statusColor(entry.status)} fillOpacity={0.85} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
 }
 
 function LogPanel() {
@@ -205,6 +299,9 @@ export default function AgentsPage() {
   const [toggleStates, setToggleStates] = useState<Record<string, ToggleState>>({});
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [history, setHistory] = useState<HistorySnapshot[]>([]);
+  const [timelineRuns, setTimelineRuns] = useState<TimelineRun[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(true);
+  const [timelineHours, setTimelineHours] = useState(24);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -226,6 +323,19 @@ export default function AgentsPage() {
     const interval = setInterval(load, 30_000);
     return () => clearInterval(interval);
   }, [load]);
+
+  const loadTimeline = useCallback((h: number) => {
+    setTimelineLoading(true);
+    apiFetch(`/api/crons/runs/timeline?hours=${h}`)
+      .then((r) => r.json())
+      .then((d) => setTimelineRuns(d.runs ?? []))
+      .catch(() => setTimelineRuns([]))
+      .finally(() => setTimelineLoading(false));
+  }, []);
+
+  useEffect(() => {
+    loadTimeline(timelineHours);
+  }, [timelineHours, loadTimeline]);
 
   const runAgent = async (id: string) => {
     setRunStates((prev) => ({ ...prev, [id]: "running" }));
@@ -295,6 +405,45 @@ export default function AgentsPage() {
             </CardContent>
           </Card>
         )}
+        <ErrorBoundary>
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader className="pb-2 pt-4 px-5">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Execution timeline</CardTitle>
+                <div className="flex items-center gap-1">
+                  {TIMELINE_HOURS.map(({ label, value }) => (
+                    <button
+                      key={value}
+                      onClick={() => setTimelineHours(value)}
+                      className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
+                        timelineHours === value
+                          ? "bg-violet-600/30 text-violet-300"
+                          : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="px-5 pb-4">
+              {timelineLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-6 bg-zinc-800 rounded" />
+                  ))}
+                </div>
+              ) : timelineRuns.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-24 text-zinc-500">
+                  <p className="text-sm">No run history found for this time range</p>
+                </div>
+              ) : (
+                <TimelineChart runs={timelineRuns} hours={timelineHours} />
+              )}
+            </CardContent>
+          </Card>
+        </ErrorBoundary>
         {!loading && agents.length > 0 && (
           <div className="hidden md:grid grid-cols-[1fr_130px_90px_90px_auto] gap-4 px-4 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
             <span>Name</span><span>Schedule</span><span>Status</span><span>Last Run</span><span>Actions</span>
