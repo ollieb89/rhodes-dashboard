@@ -1393,3 +1393,159 @@ async def crons_runs_timeline(hours: int = Query(default=24, ge=1, le=168)):
 
     runs.sort(key=lambda r: r["started_at"])
     return {"runs": runs, "hours": hours}
+
+
+# ─── DASH-043: SLA/uptime per agent ──────────────────────────────────────────
+
+@app.get("/api/crons/{cron_id}/stats")
+async def get_cron_stats(cron_id: str):
+    """Return SLA/uptime stats for a specific agent."""
+    now = datetime.now(timezone.utc)
+    cutoff_7d = now - timedelta(days=7)
+    cutoff_30d = now - timedelta(days=30)
+
+    empty = {
+        "success_rate_7d": 0.0,
+        "success_rate_30d": 0.0,
+        "total_runs": 0,
+        "failed_runs": 0,
+        "avg_duration_s": 0.0,
+        "last_success": None,
+        "last_failure": None,
+    }
+
+    if not os.path.isdir(CRON_RUNS_DIR):
+        return empty
+
+    runs_7d: list[bool] = []
+    runs_30d: list[bool] = []
+    all_runs: list[tuple[datetime, bool]] = []
+    durations: list[float] = []
+    last_success: str | None = None
+    last_failure: str | None = None
+
+    for fpath in glob.glob(os.path.join(CRON_RUNS_DIR, "*.jsonl")):
+        try:
+            with open(fpath) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    # Extract agent name from sessionKey (format: agent:NAME:cron:...)
+                    session_key = entry.get("sessionKey", "")
+                    parts = session_key.split(":")
+                    name = parts[1] if len(parts) >= 2 else ""
+                    if name != cron_id:
+                        continue
+
+                    run_at_ms = entry.get("runAtMs") or entry.get("ts", 0)
+                    if not run_at_ms:
+                        continue
+                    run_dt = datetime.fromtimestamp(run_at_ms / 1000, tz=timezone.utc)
+
+                    status = entry.get("status", "")
+                    exit_code = entry.get("exit_code")
+                    is_success = (status in ("success", "ok")) or (exit_code == 0)
+
+                    duration_ms = entry.get("durationMs")
+                    if duration_ms is None:
+                        ts_ms = entry.get("ts")
+                        if ts_ms and run_at_ms and ts_ms > run_at_ms:
+                            duration_ms = ts_ms - run_at_ms
+                    if duration_ms is not None and duration_ms >= 0:
+                        durations.append(duration_ms / 1000.0)
+
+                    all_runs.append((run_dt, is_success))
+
+                    if run_dt >= cutoff_7d:
+                        runs_7d.append(is_success)
+                    if run_dt >= cutoff_30d:
+                        runs_30d.append(is_success)
+
+                    ts_iso = run_dt.isoformat()
+                    if is_success:
+                        if last_success is None or ts_iso > last_success:
+                            last_success = ts_iso
+                    else:
+                        if last_failure is None or ts_iso > last_failure:
+                            last_failure = ts_iso
+        except OSError:
+            pass
+
+    if not all_runs:
+        return empty
+
+    def rate(lst: list[bool]) -> float:
+        if not lst:
+            return 0.0
+        return round(100.0 * sum(lst) / len(lst), 1)
+
+    return {
+        "success_rate_7d": rate(runs_7d),
+        "success_rate_30d": rate(runs_30d),
+        "total_runs": len(all_runs),
+        "failed_runs": sum(1 for _, ok in all_runs if not ok),
+        "avg_duration_s": round(sum(durations) / len(durations), 1) if durations else 0.0,
+        "last_success": last_success,
+        "last_failure": last_failure,
+    }
+
+
+# ─── DASH-047: Agent run activity heatmap ────────────────────────────────────
+
+@app.get("/api/crons/heatmap")
+async def crons_heatmap(days: int = Query(default=90, ge=1, le=365)):
+    """Aggregate all runs by date for heatmap visualization."""
+    if not os.path.isdir(CRON_RUNS_DIR):
+        return {"cells": [], "days": days}
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=days)
+
+    date_counts: dict[str, dict] = {}
+
+    for fpath in glob.glob(os.path.join(CRON_RUNS_DIR, "*.jsonl")):
+        try:
+            with open(fpath) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    run_at_ms = entry.get("runAtMs") or entry.get("ts", 0)
+                    if not run_at_ms:
+                        continue
+                    run_dt = datetime.fromtimestamp(run_at_ms / 1000, tz=timezone.utc)
+                    if run_dt < cutoff:
+                        continue
+
+                    date_str = run_dt.strftime("%Y-%m-%d")
+                    if date_str not in date_counts:
+                        date_counts[date_str] = {"total": 0, "success": 0}
+
+                    status = entry.get("status", "")
+                    exit_code = entry.get("exit_code")
+                    is_success = (status in ("success", "ok")) or (exit_code == 0)
+
+                    date_counts[date_str]["total"] += 1
+                    if is_success:
+                        date_counts[date_str]["success"] += 1
+        except OSError:
+            pass
+
+    cells = []
+    for date_str, counts in sorted(date_counts.items()):
+        total = counts["total"]
+        success_rate = round(100.0 * counts["success"] / total, 1) if total > 0 else 0.0
+        cells.append({"date": date_str, "count": total, "success_rate": success_rate})
+
+    return {"cells": cells, "days": days}

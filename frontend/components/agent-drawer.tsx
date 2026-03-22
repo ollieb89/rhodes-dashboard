@@ -21,6 +21,16 @@ interface RunEntry {
   model: string;
 }
 
+interface AgentStats {
+  success_rate_7d: number;
+  success_rate_30d: number;
+  total_runs: number;
+  failed_runs: number;
+  avg_duration_s: number;
+  last_success: string | null;
+  last_failure: string | null;
+}
+
 export interface AgentDetails {
   id: string;
   name: string;
@@ -54,6 +64,12 @@ function fmtDuration(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function reliabilityColor(rate: number): string {
+  if (rate >= 95) return "text-green-400";
+  if (rate >= 80) return "text-amber-400";
+  return "text-red-400";
+}
+
 function statusBadgeClass(status: string): string {
   const s = status.toLowerCase();
   if (s === "ok" || s === "active" || s === "running") return "bg-green-500/20 text-green-400";
@@ -72,6 +88,7 @@ type ActionState = "idle" | "loading" | "done";
 
 export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
   const [details, setDetails] = useState<AgentDetails | null>(null);
+  const [stats, setStats] = useState<AgentStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [runState, setRunState] = useState<ActionState>("idle");
   const [runMsg, setRunMsg] = useState("");
@@ -82,10 +99,16 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
     if (!agentId) return;
     setLoading(true);
     setDetails(null);
+    setStats(null);
     setRunMsg("");
-    apiFetch("/api/crons/${agentId}/details")
-      .then((r) => r.json())
-      .then((d) => setDetails(d))
+    Promise.all([
+      apiFetch("/api/crons/${agentId}/details").then((r) => r.json()),
+      apiFetch("/api/crons/${agentId}/stats").then((r) => r.json()).catch(() => null),
+    ])
+      .then(([d, s]) => {
+        setDetails(d);
+        if (s) setStats(s);
+      })
       .catch(() => setDetails({ error: "Failed to load" } as AgentDetails))
       .finally(() => setLoading(false));
   }, [agentId]);
@@ -182,6 +205,41 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
                 <div className="bg-zinc-800/40 rounded-lg px-3 py-2">
                   <p className="text-[10px] text-zinc-600 uppercase tracking-wide mb-1">Prompt</p>
                   <p className="text-xs text-zinc-400 leading-relaxed line-clamp-4">{details.description}</p>
+                </div>
+              )}
+              {stats && stats.total_runs > 0 && (
+                <div className="bg-zinc-800/40 rounded-lg px-3 py-2 space-y-2">
+                  <p className="text-[10px] text-zinc-600 uppercase tracking-wide">Reliability</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <div>
+                      <p className="text-[10px] text-zinc-600">7-day success</p>
+                      <p className={`text-sm font-medium ${reliabilityColor(stats.success_rate_7d)}`}>{stats.success_rate_7d}%</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-zinc-600">30-day success</p>
+                      <p className={`text-sm font-medium ${reliabilityColor(stats.success_rate_30d)}`}>{stats.success_rate_30d}%</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-zinc-600">Total runs</p>
+                      <p className="text-xs text-zinc-300">{stats.total_runs}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-zinc-600">Failed runs</p>
+                      <p className="text-xs text-zinc-300">{stats.failed_runs}</p>
+                    </div>
+                    {stats.avg_duration_s > 0 && (
+                      <div>
+                        <p className="text-[10px] text-zinc-600">Avg duration</p>
+                        <p className="text-xs text-zinc-300">{stats.avg_duration_s}s</p>
+                      </div>
+                    )}
+                  </div>
+                  {stats.last_success && (
+                    <p className="text-[10px] text-zinc-500">Last success: <span className="text-green-400">{fmtTs(stats.last_success)}</span></p>
+                  )}
+                  {stats.last_failure && (
+                    <p className="text-[10px] text-zinc-500">Last failure: <span className="text-red-400">{fmtTs(stats.last_failure)}</span></p>
+                  )}
                 </div>
               )}
               <div className="flex items-center gap-2 flex-wrap">

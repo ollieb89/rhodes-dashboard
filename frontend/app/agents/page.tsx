@@ -35,6 +35,22 @@ interface Agent {
   next_run: string | null;
 }
 
+interface AgentStats {
+  success_rate_7d: number;
+  success_rate_30d: number;
+  total_runs: number;
+  failed_runs: number;
+  avg_duration_s: number;
+  last_success: string | null;
+  last_failure: string | null;
+}
+
+interface HeatmapCell {
+  date: string;
+  count: number;
+  success_rate: number;
+}
+
 interface HistorySnapshot {
   timestamp: string;
   total_agents: number;
@@ -79,6 +95,103 @@ const TIMELINE_HOURS = [
   { label: "24h", value: 24 },
   { label: "7d", value: 168 },
 ];
+
+function reliabilityBadgeClass(rate: number): string {
+  if (rate >= 95) return "bg-green-500/20 text-green-400";
+  if (rate >= 80) return "bg-amber-500/20 text-amber-400";
+  return "bg-red-500/20 text-red-400";
+}
+
+const HEATMAP_CELL = 12;
+const HEATMAP_GAP = 2;
+const HEATMAP_STEP = HEATMAP_CELL + HEATMAP_GAP;
+const HEATMAP_BASE = "#27272a";
+const HEATMAP_GREEN = "#16a34a";
+const HEATMAP_RED = "#dc2626";
+const HEATMAP_LABEL_H = 16;
+
+function hexToRgb(hex: string): [number, number, number] {
+  return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+}
+
+function interpolateColor(base: string, target: string, t: number): string {
+  const [br, bg, bb] = hexToRgb(base);
+  const [tr, tg, tb] = hexToRgb(target);
+  return `rgb(${Math.round(br + (tr - br) * t)},${Math.round(bg + (tg - bg) * t)},${Math.round(bb + (tb - bb) * t)})`;
+}
+
+function RunHeatmap({ cells }: { cells: HeatmapCell[] }) {
+  const cellMap = new Map(cells.map((c) => [c.date, c]));
+  const maxCount = Math.max(1, ...cells.map((c) => c.count));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - 89);
+  const dow = startDate.getDay();
+  startDate.setDate(startDate.getDate() - (dow === 0 ? 6 : dow - 1));
+
+  const weeks: Array<Array<{ date: string; cell: HeatmapCell | null }>> = [];
+  const d = new Date(startDate);
+  while (d <= today) {
+    const week: Array<{ date: string; cell: HeatmapCell | null }> = [];
+    for (let i = 0; i < 7 && d <= today; i++) {
+      const dateStr = d.toISOString().slice(0, 10);
+      week.push({ date: dateStr, cell: cellMap.get(dateStr) ?? null });
+      d.setDate(d.getDate() + 1);
+    }
+    // Pad short last week
+    while (week.length < 7) week.push({ date: "", cell: null });
+    weeks.push(week);
+  }
+
+  const svgWidth = weeks.length * HEATMAP_STEP - HEATMAP_GAP;
+  const svgHeight = HEATMAP_LABEL_H + 7 * HEATMAP_STEP - HEATMAP_GAP;
+
+  const monthLabels: Array<{ x: number; label: string }> = [];
+  weeks.forEach((week, wi) => {
+    const first = week.find((e) => e.date && new Date(e.date + "T00:00:00").getDate() === 1);
+    if (first) {
+      monthLabels.push({ x: wi * HEATMAP_STEP, label: new Date(first.date + "T00:00:00").toLocaleDateString("en-GB", { month: "short" }) });
+    }
+  });
+
+  const legendColors = [0, 0.25, 0.5, 0.75, 1].map((t) =>
+    t === 0 ? HEATMAP_BASE : interpolateColor(HEATMAP_BASE, HEATMAP_GREEN, 0.2 + 0.8 * t)
+  );
+
+  return (
+    <div className="space-y-3 overflow-x-auto">
+      <svg width={svgWidth} height={svgHeight} className="overflow-visible">
+        {monthLabels.map(({ x, label }) => (
+          <text key={`${x}-${label}`} x={x} y={HEATMAP_LABEL_H - 4} fontSize={9} fill="#71717a">{label}</text>
+        ))}
+        {weeks.map((week, wi) =>
+          week.map(({ date, cell }, di) => {
+            if (!date) return null;
+            let fill = HEATMAP_BASE;
+            if (cell && cell.count > 0) {
+              const t = 0.2 + 0.8 * Math.min(1, cell.count / maxCount);
+              fill = interpolateColor(HEATMAP_BASE, cell.success_rate >= 80 ? HEATMAP_GREEN : HEATMAP_RED, t);
+            }
+            return (
+              <rect key={date} x={wi * HEATMAP_STEP} y={HEATMAP_LABEL_H + di * HEATMAP_STEP} width={HEATMAP_CELL} height={HEATMAP_CELL} rx={2} fill={fill}>
+                <title>{cell ? `${date}: ${cell.count} runs, ${cell.success_rate}% success` : `${date}: no runs`}</title>
+              </rect>
+            );
+          })
+        )}
+      </svg>
+      <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+        <span>Less</span>
+        {legendColors.map((c, i) => (
+          <span key={i} className="inline-block rounded-sm" style={{ width: 10, height: 10, background: c }} />
+        ))}
+        <span>More</span>
+      </div>
+    </div>
+  );
+}
 
 function statusColor(status: string): string {
   if (status === "success") return "#22c55e";
@@ -302,6 +415,9 @@ export default function AgentsPage() {
   const [timelineRuns, setTimelineRuns] = useState<TimelineRun[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [timelineHours, setTimelineHours] = useState(24);
+  const [agentStats, setAgentStats] = useState<Record<string, AgentStats>>({});
+  const [heatmapCells, setHeatmapCells] = useState<HeatmapCell[]>([]);
+  const [heatmapLoading, setHeatmapLoading] = useState(true);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -310,9 +426,25 @@ export default function AgentsPage() {
       apiFetch("/api/history?days=7").then((r) => r.json()).catch(() => null),
     ])
       .then(([d, hist]) => {
-        setAgents(d.agents ?? []);
+        const agents: Agent[] = d.agents ?? [];
+        setAgents(agents);
         setError(d.error ?? null);
         if (hist) setHistory(hist.snapshots ?? hist ?? []);
+        // Fetch stats for all agents in parallel
+        Promise.all(
+          agents.map((a) =>
+            apiFetch(`/api/crons/${a.id}/stats`)
+              .then((r) => r.json())
+              .then((s) => [a.id, s] as [string, AgentStats])
+              .catch(() => null)
+          )
+        ).then((results) => {
+          const map: Record<string, AgentStats> = {};
+          for (const r of results) {
+            if (r) map[r[0]] = r[1];
+          }
+          setAgentStats(map);
+        });
       })
       .catch(() => setError("Backend unavailable"))
       .finally(() => { setLoading(false); setLastRefresh(Date.now()); });
@@ -331,6 +463,15 @@ export default function AgentsPage() {
       .then((d) => setTimelineRuns(d.runs ?? []))
       .catch(() => setTimelineRuns([]))
       .finally(() => setTimelineLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setHeatmapLoading(true);
+    apiFetch("/api/crons/heatmap?days=90")
+      .then((r) => r.json())
+      .then((d) => setHeatmapCells(d.cells ?? []))
+      .catch(() => setHeatmapCells([]))
+      .finally(() => setHeatmapLoading(false));
   }, []);
 
   useEffect(() => {
@@ -444,9 +585,25 @@ export default function AgentsPage() {
             </CardContent>
           </Card>
         </ErrorBoundary>
+        <ErrorBoundary>
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader className="pb-2 pt-4 px-5">
+              <CardTitle className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Run Activity (last 90 days)</CardTitle>
+            </CardHeader>
+            <CardContent className="px-5 pb-4">
+              {heatmapLoading ? (
+                <Skeleton className="h-24 bg-zinc-800 rounded" />
+              ) : heatmapCells.length === 0 ? (
+                <p className="text-sm text-zinc-500">No run data available</p>
+              ) : (
+                <RunHeatmap cells={heatmapCells} />
+              )}
+            </CardContent>
+          </Card>
+        </ErrorBoundary>
         {!loading && agents.length > 0 && (
-          <div className="hidden md:grid grid-cols-[1fr_130px_90px_90px_auto] gap-4 px-4 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-            <span>Name</span><span>Schedule</span><span>Status</span><span>Last Run</span><span>Actions</span>
+          <div className="hidden md:grid grid-cols-[1fr_130px_90px_90px_90px_auto] gap-4 px-4 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+            <span>Name</span><span>Schedule</span><span>Status</span><span>Reliability</span><span>Last Run</span><span>Actions</span>
           </div>
         )}
         {loading ? (
@@ -466,12 +623,17 @@ export default function AgentsPage() {
               return (
                 <Card key={agent.id} className="bg-zinc-900 border-zinc-800">
                   <CardContent className="px-4 py-3 space-y-2">
-                    <div className="flex flex-col gap-2 md:grid md:grid-cols-[1fr_130px_90px_90px_auto] md:gap-4 md:items-center">
+                    <div className="flex flex-col gap-2 md:grid md:grid-cols-[1fr_130px_90px_90px_90px_auto] md:gap-4 md:items-center">
                       <span className="text-sm text-zinc-200 font-medium truncate">{agent.name || agent.id}</span>
                       <span className="flex items-center gap-1.5 font-mono text-xs text-violet-400">
                         <Clock className="w-3 h-3 shrink-0" />{agent.schedule || "—"}
                       </span>
                       <Badge className={`text-[10px] border-0 w-fit ${statusBadgeClass(agent.status || "")}`}>{agent.status || "—"}</Badge>
+                      {(() => {
+                        const s = agentStats[agent.id];
+                        if (!s || s.total_runs === 0) return <span className="text-xs text-zinc-600">—</span>;
+                        return <Badge className={`text-[10px] border-0 w-fit ${reliabilityBadgeClass(s.success_rate_7d)}`}>{s.success_rate_7d}%</Badge>;
+                      })()}
                       <span className="text-xs text-zinc-400">{timeAgo(agent.last_run)}</span>
                       <div className="flex items-center gap-2">
                         {runMsg && <span className={`text-xs truncate max-w-[120px] ${runMsg.state === "success" ? "text-green-400" : "text-red-400"}`} title={runMsg.text}>{runMsg.text}</span>}
