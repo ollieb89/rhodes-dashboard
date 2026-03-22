@@ -1,4 +1,4 @@
-# AGENTS.md — Rhodes Dashboard
+# AGENTS.md — Rhodes Dashboard & OCMC
 
 ## Finalization Contract (MANDATORY)
 
@@ -6,77 +6,87 @@ Every executor agent MUST satisfy all of the following before a task is consider
 
 1. Code implemented and correct
 2. Build passes: `cd frontend && npm run build` (exit code 0)
-3. Backend loads: `cd backend && source .venv/bin/activate && python -c "from main import app"`
-4. Commit created: `git add -A && git commit -m "type: description (DASH-XXX)"`
-5. Push to origin: `git push` (exit code 0)
-   — If rejected: `git pull --rebase && git push`
-6. **Completion proof** — output ALL of the following before reporting done:
+3. Backend loads (if applicable): `cd backend && source .venv/bin/activate && python -c "from app.main import app"` or equivalent
+4. Commit created on branch (see Branch Policy below)
+5. Push to origin
+6. **Agent must print the following raw command outputs verbatim** — no paraphrasing, no self-attestation:
 
 ```bash
-git rev-parse HEAD              # commit hash
-git branch --show-current       # must be: main
-git diff --stat origin/main     # must be: empty
+echo "=== COMPLETION PROOF ==="
+git rev-parse HEAD
+git rev-parse --abbrev-ref HEAD
+git status --short
+git diff --stat origin/main
+echo "========================"
 ```
 
-**A task is NOT complete unless the diff is empty and the commit hash is on origin/main.**
-If any step fails, fix it. Do not silently exit with local-only work.
+Rhodes may validate this output but must NOT replace it with its own execution unless debugging a failure.
 
 ---
 
-## Git State Verification (run after every task)
+## Branch Policy
+
+Default flow for all implementation work:
+1. Create a branch: `git checkout -b integration/<short-name>` or `feat/<task-id>`
+2. Implement
+3. Verify (build + backend check)
+4. Commit: `git add -A && git commit -m "type: description (TASK-ID)"`
+5. Push branch: `git push -u origin <branch-name>`
+6. Only merge to main if verification passes:
+   ```bash
+   git checkout main
+   git merge --ff-only <branch-name>
+   git push
+   ```
+7. Print completion proof (see above)
+
+---
+
+## Verification Commands (print output, do not summarize)
 
 ```bash
-git status                      # must show: nothing to commit, working tree clean
-git log --oneline -1            # must show your commit
-git diff --stat origin/main     # must be empty after push
+# Frontend build
+export PATH=$HOME/.nvm/versions/node/v22.21.1/bin:$PATH
+cd frontend && npm run build
+# Print: full output including exit code
+
+# Backend check (if applicable)
+cd backend && source .venv/bin/activate && python -c "from app.main import app; print('OK')"
+# Print: result
+
+# After every commit
+git status --short           # must be clean (no M or ?? from this mission)
+git diff --stat origin/main  # must be empty after push
+git log --oneline -2         # confirm commit is present
 ```
 
-If `git status` shows modified files: you have NOT finished. Commit them.
+Do NOT say "build clean" or "no regressions." Print the commands and their actual output.
+
+---
+
+## Completion is invalid if:
+
+- Proof block is missing or agent-summarized instead of raw output
+- `git status --short` shows modified tracked files from this mission
+- `git diff --stat origin/main` is non-empty after push
+- Branch was committed directly to main without verification
+- Build output was not printed
 
 ---
 
 ## Project
 
+### Rhodes Dashboard
 - Root: ~/Development/Projects/rhodes-dashboard/
 - Frontend: `frontend/` — Next.js (port 3489)
 - Backend: `backend/` — FastAPI (port 8521)
 - Backlog: BACKLOG.md
+- Node PATH: `export PATH=$HOME/.nvm/versions/node/v22.21.1/bin:$PATH`
+- Python venv: `cd backend && source .venv/bin/activate`
 
-## Node.js
-
-Always set PATH before npm commands:
-```bash
-export PATH=$HOME/.nvm/versions/node/v22.21.1/bin:$PATH
-```
-
-## Python venv
-
-Always activate before backend commands:
-```bash
-cd backend && source .venv/bin/activate
-```
-
-## Standard finalization sequence
-
-```bash
-export PATH=$HOME/.nvm/versions/node/v22.21.1/bin:$PATH
-cd ~/Development/Projects/rhodes-dashboard
-
-# 1. Checks
-cd backend && source .venv/bin/activate && python -c "from main import app; print('backend OK')" && cd ..
-cd frontend && npm run build && cd ..
-
-# 2. Commit
-git add -A
-git commit -m "type: description (DASH-XXX)"
-
-# 3. Push (with rebase fallback)
-git push || (git pull --rebase && git push)
-
-# 4. Completion proof (REQUIRED OUTPUT)
-echo "=== COMPLETION PROOF ==="
-git rev-parse HEAD
-git branch --show-current
-git diff --stat origin/main
-echo "========================"
-```
+### OCMC
+- Root: ~/Development/Tools/ocmc/
+- Frontend: `frontend/` — Next.js
+- Backend: `backend/` — FastAPI
+- Node PATH: same as above
+- Python venv: `cd backend && source .venv/bin/activate`
