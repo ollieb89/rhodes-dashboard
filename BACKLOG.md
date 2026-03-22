@@ -917,3 +917,43 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
   - Existing API response shapes unchanged
 
 ---
+
+---
+
+## Batch 7 — Delivery Intelligence
+
+### P1 — Important
+
+- [ ] **DASH-052** · M · Finalization telemetry dashboard
+
+  Track and surface delivery health for all agent-executed tasks.
+
+  **Backend (`backend/main.py`):**
+  - Add SQLite table `finalization_log(id, task_id, agent_session, commit_hash, branch, pushed_at, diff_clean, duration_s, status)`
+  - Add `POST /api/finalization/record` — called by agents at end of each task with proof payload
+  - Add `GET /api/finalization/stats` — returns:
+    ```json
+    {
+      "total_workflows": 42,
+      "clean_finalizations": 39,
+      "synthetic_finalizations": 2,
+      "blocked": 1,
+      "median_visibility_lag_s": 18,
+      "blocked_rate_pct": 2.4
+    }
+    ```
+  - "synthetic" = work existed locally but required manual recovery commit
+  - "blocked" = agent exited with dirty working tree, no commit
+
+  **Frontend:**
+  - New card on Overview page: "Delivery Health"
+  - Shows: total workflows, clean %, blocked count, median lag
+  - Sparkline for clean finalization rate over last 14 days
+  - Link to a full log table on a new `/delivery` page
+
+  **Acceptance criteria:**
+  - Stats endpoint responds correctly
+  - Overview card renders with real or empty data
+  - No regression on existing pages
+
+---
