@@ -837,10 +837,9 @@ async def get_repo_readme(repo: str):
     if cached is not None:
         return cached
     try:
-        output = await asyncio.to_thread(
-            run, ["gh", "api", f"/repos/ollieb89/{repo}/readme"]
-        )
-        data = json.loads(output) if output else {}
+        data = await github_api(f"/repos/ollieb89/{repo}/readme")
+        if not isinstance(data, dict):
+            data = {}
         raw_b64 = data.get("content", "")
         # GitHub API returns content with newlines in the base64 string
         import base64
