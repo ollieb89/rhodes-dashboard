@@ -2,7 +2,7 @@
 
 import { useSettings } from "@/hooks/use-settings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings as SettingsIcon, RotateCcw, Trash2, Plus } from "lucide-react";
+import { Settings as SettingsIcon, RotateCcw, Trash2, Plus, Send } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface AlertRule {
@@ -191,6 +191,222 @@ function AlertRulesSection({ apiUrl }: { apiUrl: string }) {
   );
 }
 
+interface Webhook {
+  id: string;
+  url: string;
+  events: string[];
+  secret: string;
+  created_at: string;
+}
+
+const ALL_EVENTS = ["alert", "incident", "agent_failure"];
+
+function WebhooksSection({ apiUrl }: { apiUrl: string }) {
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [url, setUrl] = useState("");
+  const [selectedEvents, setSelectedEvents] = useState<string[]>(["alert"]);
+  const [secret, setSecret] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [testResults, setTestResults] = useState<Record<string, string>>({});
+
+  const fetchWebhooks = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/api/webhooks`);
+      const data = await res.json();
+      setWebhooks(Array.isArray(data) ? data : []);
+    } catch {
+      setWebhooks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWebhooks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl]);
+
+  const toggleEvent = (ev: string) => {
+    setSelectedEvents((prev) =>
+      prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev]
+    );
+  };
+
+  const handleAdd = async () => {
+    if (!url.trim()) return;
+    setAdding(true);
+    try {
+      await fetch(`${apiUrl}/api/webhooks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim(), events: selectedEvents, secret: secret.trim() || undefined }),
+      });
+      setUrl("");
+      setSecret("");
+      setSelectedEvents(["alert"]);
+      await fetchWebhooks();
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    await fetch(`${apiUrl}/api/webhooks/${id}`, { method: "DELETE" });
+    await fetchWebhooks();
+  };
+
+  const handleTest = async (id: string) => {
+    setTestResults((prev) => ({ ...prev, [id]: "…" }));
+    try {
+      const res = await fetch(`${apiUrl}/api/webhooks/${id}/test`, { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setTestResults((prev) => ({ ...prev, [id]: `${data.status_code} OK` }));
+      } else {
+        setTestResults((prev) => ({ ...prev, [id]: data.error ?? `${data.status_code}` }));
+      }
+    } catch (e) {
+      setTestResults((prev) => ({ ...prev, [id]: "Error" }));
+    }
+  };
+
+  const inputClass =
+    "rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent h-11";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Webhooks</CardTitle>
+        <CardDescription>
+          Receive alert notifications via HTTP webhook.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Add form */}
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="flex flex-col gap-1 flex-1 min-w-48">
+              <label className="text-xs text-zinc-500">URL</label>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://hooks.slack.com/..."
+                className={inputClass + " w-full"}
+              />
+            </div>
+            <div className="flex flex-col gap-1 w-48">
+              <label className="text-xs text-zinc-500">Secret (optional)</label>
+              <input
+                type="text"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                placeholder="hmac secret"
+                className={inputClass + " w-full"}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="text-xs text-zinc-500">Events:</span>
+            {ALL_EVENTS.map((ev) => (
+              <label key={ev} className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedEvents.includes(ev)}
+                  onChange={() => toggleEvent(ev)}
+                  className="accent-violet-500"
+                />
+                {ev}
+              </label>
+            ))}
+            <button
+              onClick={handleAdd}
+              disabled={adding || !url.trim()}
+              className="ml-auto inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors h-11 disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" />
+              Add Webhook
+            </button>
+          </div>
+        </div>
+
+        {/* List */}
+        {loading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-10 rounded bg-zinc-800 animate-pulse" />
+            ))}
+          </div>
+        ) : webhooks.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            No webhooks configured. Add one to receive alerts in Slack, Discord, or any HTTP endpoint.
+          </p>
+        ) : (
+          <div className="rounded-md border border-zinc-800 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800 text-zinc-500">
+                  <th className="text-left px-3 py-2 font-medium">URL</th>
+                  <th className="text-left px-3 py-2 font-medium">Events</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {webhooks.map((wh) => (
+                  <tr key={wh.id} className="border-b border-zinc-800 last:border-0">
+                    <td className="px-3 py-2 text-zinc-200 max-w-xs truncate font-mono text-xs">
+                      {wh.url}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1 flex-wrap">
+                        {wh.events.map((ev) => (
+                          <span key={ev} className="text-xs rounded-full px-2 py-0.5 bg-zinc-800 text-zinc-400 border border-zinc-700">
+                            {ev}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        {testResults[wh.id] && (
+                          <span
+                            className={
+                              testResults[wh.id].includes("OK")
+                                ? "text-xs text-emerald-400"
+                                : "text-xs text-red-400"
+                            }
+                          >
+                            {testResults[wh.id]}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleTest(wh.id)}
+                          className="text-zinc-500 hover:text-violet-400 transition-colors"
+                          title="Send test"
+                        >
+                          <Send className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(wh.id)}
+                          className="text-zinc-500 hover:text-red-400 transition-colors"
+                          title="Delete webhook"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const { settings, updateSettings, resetSettings, loaded, defaults } = useSettings();
 
@@ -277,6 +493,9 @@ export default function SettingsPage() {
 
       {/* Alert Rules */}
       <AlertRulesSection apiUrl={settings.apiUrl} />
+
+      {/* Webhooks */}
+      <WebhooksSection apiUrl={settings.apiUrl} />
 
       {/* Actions */}
       <Card>

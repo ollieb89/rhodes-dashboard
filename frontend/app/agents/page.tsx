@@ -23,6 +23,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { AgentDrawer } from "@/components/agent-drawer";
 import { UpdatedAgo } from "@/components/updated-ago";
 import { apiFetch, apiUrl } from "@/lib/api";
+import { AgentGraph } from "@/components/agent-graph";
 
 const MAX_LOG_LINES = 200;
 
@@ -411,6 +412,7 @@ export default function AgentsPage() {
   const [runMessages, setRunMessages] = useState<Record<string, RunMsg>>({});
   const [toggleStates, setToggleStates] = useState<Record<string, ToggleState>>({});
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [view, setView] = useState<"list" | "graph">("list");
   const [history, setHistory] = useState<HistorySnapshot[]>([]);
   const [timelineRuns, setTimelineRuns] = useState<TimelineRun[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
@@ -520,10 +522,26 @@ export default function AgentsPage() {
             <h1 className="text-lg sm:text-xl font-semibold text-zinc-100">Agents</h1>
             <p className="text-sm text-zinc-500 mt-1">OpenClaw cron jobs ({agents.length} found)</p>
           </div>
-          <button onClick={load} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors">
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-zinc-700 overflow-hidden text-xs">
+              <button
+                onClick={() => setView("list")}
+                className={`px-3 py-1.5 transition-colors ${view === "list" ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}
+              >
+                List
+              </button>
+              <button
+                onClick={() => setView("graph")}
+                className={`px-3 py-1.5 transition-colors ${view === "graph" ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}
+              >
+                Graph
+              </button>
+            </div>
+            <button onClick={load} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors">
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
         </div>
         {error && (
           <div className="bg-red-950/30 border border-red-800/50 rounded-xl px-4 py-3">
@@ -601,14 +619,17 @@ export default function AgentsPage() {
             </CardContent>
           </Card>
         </ErrorBoundary>
-        {!loading && agents.length > 0 && (
+        {view === "graph" && (
+          <AgentGraph agents={agents} onSelectAgent={(id) => setSelectedAgentId(id)} />
+        )}
+        {view === "list" && !loading && agents.length > 0 && (
           <div className="hidden md:grid grid-cols-[1fr_130px_90px_90px_90px_auto] gap-4 px-4 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
             <span>Name</span><span>Schedule</span><span>Status</span><span>Reliability</span><span>Last Run</span><span>Actions</span>
           </div>
         )}
-        {loading ? (
+        {view === "list" && loading ? (
           <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 bg-zinc-800 rounded-xl" />)}</div>
-        ) : agents.length === 0 ? (
+        ) : view === "list" && agents.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl">
             <Bot className="w-8 h-8 mb-2" />
             <p className="text-sm">No cron jobs found</p>

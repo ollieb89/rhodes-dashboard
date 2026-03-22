@@ -437,6 +437,20 @@ async def get_overview():
                     f.write(json.dumps(entry) + "\n")
         except OSError:
             pass
+        # Fire webhooks for alert/incident events
+        try:
+            _init_webhooks_db()
+            conn = sqlite3.connect(DB_PATH)
+            wh_rows = conn.execute("SELECT url, events, secret FROM webhooks").fetchall()
+            conn.close()
+            for wh_url, wh_events_json, wh_secret in wh_rows:
+                wh_events = json.loads(wh_events_json)
+                if not wh_events or "alert" in wh_events or "incident" in wh_events:
+                    for alert in triggered:
+                        payload = {**alert, "type": "alert", "timestamp": datetime.now(timezone.utc).isoformat()}
+                        asyncio.create_task(_deliver_webhook(wh_url, payload, wh_secret or ""))
+        except Exception:
+            pass
 
     return {"stats": stats}
 
@@ -668,6 +682,107 @@ def _evaluate_alert_rules(stats: dict) -> list[dict]:
         except Exception:
             continue
     return triggered
+
+
+# ─── DASH-048: Webhook delivery ───────────────────────────────────────────────
+
+
+def _init_webhooks_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""CREATE TABLE IF NOT EXISTS webhooks (
+        id TEXT PRIMARY KEY,
+        url TEXT NOT NULL,
+        events TEXT NOT NULL DEFAULT '[]',
+        secret TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.commit()
+    conn.close()
+
+
+class WebhookCreate(_BaseModel):
+    url: str
+    events: list[str] = []
+    secret: _Optional[str] = ""
+
+
+async def _deliver_webhook(url: str, payload: dict, secret: str = "") -> dict:
+    """POST JSON payload to webhook URL. HMAC-sign if secret provided."""
+    import hmac
+    import hashlib
+    body = json.dumps(payload).encode()
+    headers = {"Content-Type": "application/json", "X-Rhodes-Event": payload.get("type", "alert")}
+    if secret:
+        sig = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        headers["X-Rhodes-Signature"] = f"sha256={sig}"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(url, content=body, headers=headers)
+            return {"ok": r.status_code < 400, "status_code": r.status_code}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/webhooks")
+async def list_webhooks():
+    _init_webhooks_db()
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        "SELECT id, url, events, secret, created_at FROM webhooks ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "id": r[0],
+            "url": r[1],
+            "events": json.loads(r[2]),
+            "secret": r[3],
+            "created_at": r[4],
+        }
+        for r in rows
+    ]
+
+
+@app.post("/api/webhooks")
+async def create_webhook(body: WebhookCreate):
+    _init_webhooks_db()
+    wh_id = str(_uuid.uuid4())
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO webhooks (id, url, events, secret) VALUES (?, ?, ?, ?)",
+        (wh_id, body.url, json.dumps(body.events), body.secret or ""),
+    )
+    conn.commit()
+    conn.close()
+    return {"id": wh_id, "url": body.url, "events": body.events}
+
+
+@app.delete("/api/webhooks/{webhook_id}")
+async def delete_webhook(webhook_id: str):
+    _init_webhooks_db()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.execute("DELETE FROM webhooks WHERE id = ?", (webhook_id,))
+    conn.commit()
+    conn.close()
+    if cursor.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    return {"ok": True}
+
+
+@app.post("/api/webhooks/{webhook_id}/test")
+async def test_webhook(webhook_id: str):
+    _init_webhooks_db()
+    conn = sqlite3.connect(DB_PATH)
+    row = conn.execute(
+        "SELECT url, secret FROM webhooks WHERE id = ?", (webhook_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    url, secret = row
+    payload = {"type": "test", "message": "Rhodes Dashboard test webhook", "timestamp": datetime.now(timezone.utc).isoformat()}
+    result = await _deliver_webhook(url, payload, secret or "")
+    return result
 
 
 if __name__ == "__main__":
@@ -1549,3 +1664,21 @@ async def crons_heatmap(days: int = Query(default=90, ge=1, le=365)):
         cells.append({"date": date_str, "count": total, "success_rate": success_rate})
 
     return {"cells": cells, "days": days}
+
+
+# ─── DASH-049: Agent dependency graph ────────────────────────────────────────
+
+@app.get("/api/agents/deps")
+async def get_agent_deps():
+    """Return agent dependency edges from ~/.openclaw/agent-deps.json."""
+    deps_path = os.path.expanduser("~/.openclaw/agent-deps.json")
+    if not os.path.isfile(deps_path):
+        return {"edges": []}
+    try:
+        with open(deps_path) as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return {"edges": data}
+        return {"edges": data.get("edges", [])}
+    except (OSError, json.JSONDecodeError):
+        return {"edges": []}
