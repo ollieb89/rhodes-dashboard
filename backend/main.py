@@ -126,26 +126,63 @@ def run(cmd: list[str]) -> str:
     return result.stdout.strip()
 
 
+# ─── DASH-051: GitHub REST API helper ────────────────────────────────────────
+
+_github_token_cache: str = ""
+
+
+async def github_api(path: str):
+    """Authenticated async GET to GitHub REST API. Raises HTTPException(503) if no token."""
+    global _github_token_cache
+    token = _github_token_cache or os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        try:
+            result = await asyncio.to_thread(
+                lambda: subprocess.run(
+                    ["gh", "auth", "token"], capture_output=True, text=True, timeout=10
+                )
+            )
+            token = result.stdout.strip()
+        except Exception:
+            token = ""
+    if not token:
+        raise HTTPException(status_code=503, detail="No GitHub token available")
+    _github_token_cache = token
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            f"https://api.github.com{path}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+def _normalize_repo(r: dict) -> dict:
+    """Normalize GitHub REST API repo fields to match gh CLI camelCase format."""
+    lang = r.get("language")
+    return {
+        "name": r.get("name", ""),
+        "description": r.get("description") or "",
+        "stargazerCount": r.get("stargazers_count", 0),
+        "forkCount": r.get("forks_count", 0),
+        "createdAt": r.get("created_at", ""),
+        "pushedAt": r.get("pushed_at", ""),
+        "url": r.get("html_url", ""),
+        "primaryLanguage": {"name": lang} if lang else None,
+    }
+
+
 @app.get("/api/products")
 async def get_products():
     cached = _cache.get("/api/products")
     if cached is not None:
         return cached
     try:
-        output = await asyncio.to_thread(
-            run,
-            [
-                "gh",
-                "repo",
-                "list",
-                "ollieb89",
-                "--json",
-                "name,description,stargazerCount,forkCount,createdAt,pushedAt,url,primaryLanguage",
-                "-L",
-                "50",
-            ],
-        )
-        repos = json.loads(output) if output else []
+        repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
+        repos = [_normalize_repo(r) for r in (repos_raw if isinstance(repos_raw, list) else [])]
         result = {"repos": repos, "total": len(repos)}
         _cache.set("/api/products", result, 120)
         return result
@@ -292,11 +329,8 @@ async def get_metrics():
 
     async def fetch_repos():
         try:
-            output = await asyncio.to_thread(
-                run,
-                ["gh", "repo", "list", "ollieb89", "--json", "name,stargazerCount,forkCount,url", "-L", "50"],
-            )
-            return json.loads(output) if output else []
+            repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
+            return [_normalize_repo(r) for r in (repos_raw if isinstance(repos_raw, list) else [])]
         except Exception:
             return []
 
@@ -401,20 +435,8 @@ async def get_history(days: int = Query(default=7, ge=1)):
 
 async def _get_products_count() -> int:
     try:
-        output = await asyncio.to_thread(
-            run,
-            [
-                "gh",
-                "repo",
-                "list",
-                "ollieb89",
-                "--json",
-                "name",
-                "-L",
-                "50",
-            ],
-        )
-        return len(json.loads(output)) if output else 0
+        repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
+        return len(repos_raw) if isinstance(repos_raw, list) else 0
     except Exception:
         return 0
 
@@ -444,12 +466,9 @@ async def _get_agents_count() -> int:
 
 async def _get_total_stars() -> int:
     try:
-        output = await asyncio.to_thread(
-            run,
-            ["gh", "repo", "list", "ollieb89", "--json", "stargazerCount", "-L", "50"],
-        )
-        repos = json.loads(output) if output else []
-        return sum(r.get("stargazerCount", 0) for r in repos)
+        repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
+        repos = repos_raw if isinstance(repos_raw, list) else []
+        return sum(r.get("stargazers_count", 0) for r in repos)
     except Exception:
         return 0
 
@@ -625,24 +644,16 @@ async def logs_stream():
 async def _fetch_ci_for_repo(repo_name: str) -> tuple[str, dict | None]:
     """Fetch latest CI run for a single repo. Returns (repo_name, run_data|None)."""
     try:
-        output = await asyncio.to_thread(
-            run,
-            [
-                "gh", "run", "list",
-                "--repo", f"ollieb89/{repo_name}",
-                "--json", "status,conclusion,name,headBranch,createdAt,url",
-                "--limit", "1",
-            ],
-        )
-        runs = json.loads(output) if output else []
+        data = await github_api(f"/repos/ollieb89/{repo_name}/actions/runs?per_page=1")
+        runs = data.get("workflow_runs", []) if isinstance(data, dict) else []
         if runs:
             r = runs[0]
             return repo_name, {
                 "status": r.get("status", ""),
                 "conclusion": r.get("conclusion", ""),
                 "name": r.get("name", ""),
-                "branch": r.get("headBranch", ""),
-                "url": r.get("url", ""),
+                "branch": r.get("head_branch", ""),
+                "url": r.get("html_url", ""),
             }
     except Exception:
         pass
@@ -658,11 +669,8 @@ async def get_ci():
 
     # Get repo list
     try:
-        output = await asyncio.to_thread(
-            run,
-            ["gh", "repo", "list", "ollieb89", "--json", "name", "-L", "50"],
-        )
-        repos = json.loads(output) if output else []
+        repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
+        repos = repos_raw if isinstance(repos_raw, list) else []
         repo_names = [r["name"] for r in repos]
     except Exception as e:
         return {"runs": {}, "error": str(e)}
@@ -794,8 +802,9 @@ async def get_github_profile():
     if cached is not None:
         return cached
     try:
-        output = await asyncio.to_thread(run, ["gh", "api", "/user"])
-        data = json.loads(output) if output else {}
+        data = await github_api("/user")
+        if not isinstance(data, dict):
+            data = {}
         result = {
             "login": data.get("login", ""),
             "name": data.get("name", ""),
@@ -1158,3 +1167,71 @@ async def sse_events(request: Request):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ─── DASH-042: Agent execution timeline ───────────────────────────────────────
+
+@app.get("/api/crons/runs/timeline")
+async def crons_runs_timeline(hours: int = Query(default=24, ge=1, le=168)):
+    """Return run history within the last N hours for timeline visualization."""
+    if not os.path.isdir(CRON_RUNS_DIR):
+        return {"runs": [], "hours": hours}
+
+    cutoff_ms = (datetime.now(timezone.utc) - timedelta(hours=hours)).timestamp() * 1000
+
+    runs: list[dict] = []
+    for fpath in glob.glob(os.path.join(CRON_RUNS_DIR, "*.jsonl")):
+        try:
+            with open(fpath) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    run_at_ms = entry.get("runAtMs") or entry.get("ts", 0)
+                    if not run_at_ms or run_at_ms < cutoff_ms:
+                        continue
+
+                    started_at = datetime.fromtimestamp(run_at_ms / 1000, tz=timezone.utc).isoformat()
+
+                    ts_ms = entry.get("ts")
+                    if ts_ms:
+                        ended_at = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).isoformat()
+                    else:
+                        duration_ms = entry.get("durationMs", 0)
+                        ended_at = datetime.fromtimestamp((run_at_ms + duration_ms) / 1000, tz=timezone.utc).isoformat()
+
+                    # Extract name from sessionKey (format: agent:name:cron:...)
+                    session_key = entry.get("sessionKey", "")
+                    name = entry.get("name", "")
+                    if not name and session_key:
+                        parts = session_key.split(":")
+                        if len(parts) >= 2:
+                            name = parts[1]
+                    if not name:
+                        name = entry.get("jobId", "unknown")[:8]
+
+                    raw_status = entry.get("status", "unknown")
+                    if raw_status == "ok":
+                        status = "success"
+                    elif raw_status == "error":
+                        status = "error"
+                    else:
+                        status = raw_status or "unknown"
+
+                    runs.append({
+                        "id": entry.get("jobId", ""),
+                        "name": name,
+                        "started_at": started_at,
+                        "ended_at": ended_at,
+                        "status": status,
+                    })
+        except OSError:
+            pass
+
+    runs.sort(key=lambda r: r["started_at"])
+    return {"runs": runs, "hours": hours}
