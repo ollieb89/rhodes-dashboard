@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Package, FileText, Bot, Activity, Clock, RefreshCw, MapPin, Users, Github, Download } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
@@ -73,6 +73,35 @@ function toSparkData(history: HistorySnapshot[], key: keyof HistorySnapshot) {
   return history.map((h) => ({ value: h[key] as number }));
 }
 
+function computeWeekDelta(
+  history: HistorySnapshot[],
+  key: keyof HistorySnapshot,
+  currentValue: number
+): React.ReactNode | null {
+  if (history.length < 2) return null;
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  let closest: HistorySnapshot | null = null;
+  let minDiff = Infinity;
+  for (const snap of history) {
+    const diff = Math.abs(new Date(snap.timestamp).getTime() - sevenDaysAgo);
+    if (diff < minDiff) { minDiff = diff; closest = snap; }
+  }
+  if (!closest) return null;
+  const oldValue = closest[key] as number;
+  const delta = currentValue - oldValue;
+  if (delta === 0) return null;
+  const pct = oldValue !== 0 ? (delta / oldValue) * 100 : null;
+  const sign = delta > 0 ? "+" : "";
+  const pctStr = pct !== null ? ` (${sign}${pct.toFixed(1)}%)` : "";
+  const arrow = delta > 0 ? "⬆" : "⬇";
+  const color = delta > 0 ? "text-green-400" : "text-red-400";
+  return (
+    <span className={`text-xs ${color}`}>
+      {arrow} {sign}{delta} this week{pctStr}
+    </span>
+  );
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -102,7 +131,7 @@ export default function OverviewPage() {
         apiFetch("/api/overview"),
         apiFetch("/api/products"),
         apiFetch("/api/agents"),
-        apiFetch("/api/history?days=7").catch(() => null),
+        apiFetch("/api/history?days=14").catch(() => null),
         apiFetch("/api/github/profile").catch(() => null),
         apiFetch("/api/activity?limit=20").catch(() => null),
       ]);
@@ -303,6 +332,7 @@ export default function OverviewPage() {
               accent="text-blue-400"
               sparkData={reposSpark}
               sparkColor="#60a5fa"
+              delta={computeWeekDelta(history, "total_repos", stats?.total_repos ?? 0)}
             />
             <StatCard
               label="Articles"
@@ -311,6 +341,7 @@ export default function OverviewPage() {
               accent="text-green-400"
               sparkData={articlesSpark}
               sparkColor="#4ade80"
+              delta={computeWeekDelta(history, "total_articles", stats?.total_articles ?? 0)}
             />
             <StatCard
               label="Cron Agents"
@@ -319,6 +350,7 @@ export default function OverviewPage() {
               accent="text-violet-400"
               sparkData={agentsSpark}
               sparkColor="#a78bfa"
+              delta={computeWeekDelta(history, "total_agents", stats?.total_agents ?? 0)}
             />
             <StatCard
               label="Active"

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip } from "recharts";
@@ -16,6 +17,7 @@ interface StatCardProps {
   accent?: string;
   sparkData?: SparkPoint[];
   sparkColor?: string;
+  delta?: React.ReactNode;
 }
 
 export function StatCard({
@@ -26,6 +28,7 @@ export function StatCard({
   accent = "text-violet-400",
   sparkData,
   sparkColor = "#8b5cf6",
+  delta,
 }: StatCardProps) {
   const hasSpark = sparkData && sparkData.length > 1;
 
@@ -38,6 +41,7 @@ export function StatCard({
               {label}
             </p>
             <p className="text-2xl font-bold text-zinc-100 mt-1">{value}</p>
+            {delta && <div className="mt-1">{delta}</div>}
             {sub && <p className="text-xs text-zinc-500 mt-1">{sub}</p>}
           </div>
           <div className={`p-2 rounded-lg bg-zinc-800 ${accent}`}>
