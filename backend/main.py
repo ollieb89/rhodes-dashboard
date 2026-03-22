@@ -3,7 +3,7 @@ import json
 import os
 import sqlite3
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -351,7 +351,13 @@ async def get_overview():
         _get_articles_count(),
         _get_agents_count(),
         _get_total_stars(),
+        return_exceptions=True,
     )
+
+    products_count = 0 if isinstance(products_count, Exception) else products_count
+    articles_count = 0 if isinstance(articles_count, Exception) else articles_count
+    agents_count = 0 if isinstance(agents_count, Exception) else agents_count
+    total_stars = 0 if isinstance(total_stars, Exception) else total_stars
 
     await asyncio.to_thread(
         _save_snapshot, products_count, total_stars, articles_count, agents_count
