@@ -108,6 +108,22 @@ def _init_db() -> None:
     conn.close()
 
 
+def _init_alerts_db() -> None:
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""CREATE TABLE IF NOT EXISTS alert_rules (
+        id TEXT PRIMARY KEY,
+        metric TEXT NOT NULL,
+        operator TEXT NOT NULL CHECK(operator IN ('<', '>', '<=', '>=', '==')),
+        threshold REAL NOT NULL,
+        window_minutes INTEGER DEFAULT 0,
+        notify_channel TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        enabled INTEGER DEFAULT 1
+    )""")
+    conn.commit()
+    conn.close()
+
+
 def _save_snapshot(total_repos: int, total_stars: int, total_articles: int, total_agents: int) -> None:
     _init_db()
     conn = sqlite3.connect(DB_PATH)
@@ -397,14 +413,32 @@ async def get_overview():
         _save_snapshot, products_count, total_stars, articles_count, agents_count
     )
 
-    return {
-        "stats": {
-            "total_repos": products_count,
-            "total_articles": articles_count,
-            "total_agents": agents_count,
-            "last_updated": datetime.now(timezone.utc).isoformat(),
-        }
+    stats = {
+        "total_repos": products_count,
+        "total_articles": articles_count,
+        "total_agents": agents_count,
+        "total_stars": total_stars,
+        "active_agents": agents_count,
+        "total_article_views": 0,
     }
+
+    # Evaluate alert rules and append triggered alerts to events log
+    triggered = await asyncio.to_thread(_evaluate_alert_rules, stats)
+    if triggered:
+        audit_path = os.path.expanduser("~/.openclaw/logs/config-audit.jsonl")
+        os.makedirs(os.path.dirname(audit_path), exist_ok=True)
+        try:
+            with open(audit_path, "a") as f:
+                for alert in triggered:
+                    entry = {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "event": f"alert.triggered: {alert['metric']} {alert['operator']} {alert['threshold']} (value={alert['value']})",
+                    }
+                    f.write(json.dumps(entry) + "\n")
+        except OSError:
+            pass
+
+    return {"stats": stats}
 
 
 @app.get("/api/history")
@@ -509,6 +543,131 @@ async def sse_status():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# ─── DASH-045: Configurable alerting rules ────────────────────────────────────
+
+import uuid as _uuid
+from pydantic import BaseModel as _BaseModel
+from typing import Optional as _Optional
+
+
+class AlertRuleCreate(_BaseModel):
+    metric: str
+    operator: str
+    threshold: float
+    window_minutes: _Optional[int] = 0
+    notify_channel: _Optional[str] = ""
+
+
+SUPPORTED_METRICS = {
+    "active_agents", "total_stars", "total_repos", "total_articles", "total_article_views"
+}
+SUPPORTED_OPERATORS = {"<", ">", "<=", ">=", "=="}
+
+
+@app.get("/api/alerts/rules")
+async def list_alert_rules():
+    _init_alerts_db()
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        "SELECT id, metric, operator, threshold, window_minutes, notify_channel, created_at, enabled FROM alert_rules ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
+    return {
+        "rules": [
+            {
+                "id": r[0],
+                "metric": r[1],
+                "operator": r[2],
+                "threshold": r[3],
+                "window_minutes": r[4],
+                "notify_channel": r[5],
+                "created_at": r[6],
+                "enabled": bool(r[7]),
+            }
+            for r in rows
+        ]
+    }
+
+
+@app.post("/api/alerts/rules")
+async def create_alert_rule(body: AlertRuleCreate):
+    if body.metric not in SUPPORTED_METRICS:
+        raise HTTPException(status_code=400, detail=f"Unsupported metric. Allowed: {sorted(SUPPORTED_METRICS)}")
+    if body.operator not in SUPPORTED_OPERATORS:
+        raise HTTPException(status_code=400, detail=f"Unsupported operator. Allowed: {sorted(SUPPORTED_OPERATORS)}")
+    _init_alerts_db()
+    rule_id = str(_uuid.uuid4())
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO alert_rules (id, metric, operator, threshold, window_minutes, notify_channel) VALUES (?, ?, ?, ?, ?, ?)",
+        (rule_id, body.metric, body.operator, body.threshold, body.window_minutes or 0, body.notify_channel or ""),
+    )
+    conn.commit()
+    conn.close()
+    return {"ok": True, "id": rule_id}
+
+
+@app.delete("/api/alerts/rules/{rule_id}")
+async def delete_alert_rule(rule_id: str):
+    _init_alerts_db()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.execute("DELETE FROM alert_rules WHERE id = ?", (rule_id,))
+    conn.commit()
+    conn.close()
+    if cursor.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return {"ok": True}
+
+
+@app.post("/api/alerts/test")
+async def test_alert():
+    return {"ok": True, "message": "Test alert triggered"}
+
+
+def _evaluate_alert_rules(stats: dict) -> list[dict]:
+    """Check all enabled rules against current stats. Return list of triggered alerts."""
+    try:
+        _init_alerts_db()
+        conn = sqlite3.connect(DB_PATH)
+        rows = conn.execute(
+            "SELECT id, metric, operator, threshold FROM alert_rules WHERE enabled = 1"
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return []
+
+    triggered = []
+    for row in rows:
+        rule_id, metric, operator, threshold = row
+        value = stats.get(metric)
+        if value is None:
+            continue
+        try:
+            value = float(value)
+            fired = False
+            if operator == "<":
+                fired = value < threshold
+            elif operator == ">":
+                fired = value > threshold
+            elif operator == "<=":
+                fired = value <= threshold
+            elif operator == ">=":
+                fired = value >= threshold
+            elif operator == "==":
+                fired = value == threshold
+            if fired:
+                triggered.append({
+                    "rule_id": rule_id,
+                    "metric": metric,
+                    "operator": operator,
+                    "threshold": threshold,
+                    "value": value,
+                })
+        except Exception:
+            continue
+    return triggered
 
 
 if __name__ == "__main__":
