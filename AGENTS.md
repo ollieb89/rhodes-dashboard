@@ -65,6 +65,8 @@ Do NOT say "build clean" or "no regressions." Print the commands and their actua
 ---
 
 ## Completion is invalid if:
+**If any required proof command is missing, summarized, paraphrased, or replaced with conclusions, the mission must be marked incomplete even if the code changes themselves are correct.**
+
 
 - Proof block is missing or agent-summarized instead of raw output
 - `git status --short` shows modified tracked files from this mission
