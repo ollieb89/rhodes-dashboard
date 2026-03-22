@@ -748,3 +748,172 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
   - Fewer duplicate network calls in common navigation flows
   - Shared fetch helper used in at least 3 pages
 
+
+---
+
+## Batch 6 — Power & Observability
+
+### P0 — Critical
+
+- [ ] **DASH-041** · M · Add CI/CD pipeline (GitHub Actions)
+
+  Add `.github/workflows/ci.yml` that runs on every push/PR:
+  - `tsc --noEmit` type check on frontend
+  - `eslint` lint check on frontend
+  - `ruff check backend/` Python lint
+  - Backend unit tests via `pytest` (write at least 3: incident detection, TTL cache, cron ID validation)
+  - Frontend build check `npm run build`
+
+  **Acceptance criteria:**
+  - Workflow file exists and is valid
+  - All 5 checks run on push to main
+  - README badges for CI status
+
+---
+
+### P1 — Important
+
+- [ ] **DASH-042** · M · Agent execution timeline chart
+
+  Add a Gantt-style timeline to the Agents page showing recent agent runs across time.
+
+  **Backend:** Add `GET /api/crons/runs/timeline?hours=24` — parses run history from `~/.openclaw/cron/runs/` JSONL and returns `{ runs: [{ id, name, started_at, ended_at, status }] }` sorted by time.
+
+  **Frontend:** Recharts `BarChart` with time on X axis, agent name on Y axis. Bars colored by status (green/red/amber). Shows last 24h by default with a toggle for 6h/24h/7d.
+
+  **Acceptance criteria:**
+  - Timeline renders with real data
+  - Color-coded by run status
+  - Time range toggle works
+
+---
+
+- [ ] **DASH-043** · M · SLA/uptime tracking per agent
+
+  Track and display per-agent reliability metrics.
+
+  **Backend:** Add `GET /api/crons/{id}/stats` — reads run history and computes: `{ success_rate_7d, success_rate_30d, total_runs, failed_runs, avg_duration_s, last_success, last_failure }`. Store computed stats in SQLite for faster retrieval.
+
+  **Frontend:** Add a "Reliability" column to the Agents table showing success rate as a percentage badge (green ≥95%, amber 80–95%, red <80%). Show full stats in the agent details drawer.
+
+  **Acceptance criteria:**
+  - Success rate visible per agent in table
+  - Detailed stats in drawer
+  - Colors reflect thresholds
+
+---
+
+- [ ] **DASH-044** · S · Period-over-period deltas on stat cards
+
+  Show week-over-week change on Overview stat cards.
+
+  **Frontend only:** Using `/api/history`, compare current values to 7 days ago. Show delta below each stat value: "⬆ +12 this week" in green or "⬇ -3 this week" in red. Use existing `useFetchWithTimestamp` hook pattern.
+
+  **Acceptance criteria:**
+  - Delta shown on all 4 stat cards
+  - Correct sign and color
+  - Graceful no-op when <7 days of history
+
+---
+
+- [ ] **DASH-045** · M · Configurable alerting rules
+
+  Let users define threshold-based alert rules that generate incidents.
+
+  **Backend:** Add `GET/POST/DELETE /api/alerts/rules` — CRUD for rules stored in SQLite. Rule schema: `{ id, metric, operator, threshold, window_minutes, notify_channel }`. On each `/api/overview` call, evaluate rules and auto-create incidents. Add `POST /api/alerts/test` to trigger a test notification.
+
+  **Frontend (`/settings` page):** Add an "Alert Rules" section — list existing rules, form to add new rule (metric dropdown, operator, threshold), delete button per rule.
+
+  **Acceptance criteria:**
+  - Rules persisted in SQLite
+  - Auto-evaluated on each overview refresh
+  - Violations appear in incidents page
+  - At least 3 built-in metric options: stars, active agents, article views
+
+---
+
+- [ ] **DASH-046** · S · Fix asyncio.gather() in /api/overview
+
+  The `/api/overview` endpoint fetches repos, articles, and agents sequentially. Wrap with `asyncio.gather()` for parallel execution.
+
+  **Backend only:** Refactor the 3 data-fetch calls in `/api/overview` to use `asyncio.gather()`. Expected 2–3x response time improvement.
+
+  **Acceptance criteria:**
+  - Fetches run in parallel
+  - Response time measurably improved
+  - No regression in returned data shape
+
+---
+
+- [ ] **DASH-047** · M · Agent run activity heatmap
+
+  GitHub contribution-grid style heatmap showing agent run frequency and success rate.
+
+  **Backend:** Add `GET /api/crons/heatmap?days=90` — returns a 2D array of `{ date, hour, count, success_rate }` for each agent, or aggregated across all agents.
+
+  **Frontend (`/agents` page):** Render a calendar heatmap grid (day columns, week rows) using SVG or a lightweight library. Cell color intensity = run count, color hue = success rate (green/red gradient). Tooltip on hover shows exact counts.
+
+  **Acceptance criteria:**
+  - 90-day heatmap visible on Agents page
+  - Color encodes both frequency and success rate
+  - Tooltip shows date + counts on hover
+
+---
+
+- [ ] **DASH-048** · M · Webhook delivery for alerts
+
+  Push incidents and alert triggers to external channels.
+
+  **Backend:** Add `GET/POST/DELETE /api/webhooks` — CRUD for webhook configs: `{ id, url, events: string[], secret? }`. On incident creation or alert rule trigger, POST a JSON payload to registered webhooks. Sign payload with HMAC-SHA256 if secret provided.
+
+  **Frontend (`/settings` page):** Add a "Webhooks" section — list webhooks, add form (URL + event type multiselect), test button that sends a sample payload, delete button.
+
+  **Acceptance criteria:**
+  - Webhooks fire on incident creation
+  - HMAC signing works correctly
+  - Test button confirms delivery with HTTP status
+
+---
+
+### P2 — Nice-to-have
+
+- [ ] **DASH-049** · M · Agent dependency graph
+
+  Visualize relationships between agents using React Flow.
+
+  **Frontend:** New tab or section on Agents page. Install `reactflow`. Render agents as nodes, draw edges between agents that trigger each other (parsed from agent descriptions or a config file `~/.openclaw/agent-deps.json`). Node color = current status.
+
+  **Acceptance criteria:**
+  - Graph renders all agents as nodes
+  - Edges drawn where dependency data exists
+  - Clicking a node opens agent drawer
+  - Falls back to list view if no dependency data
+
+---
+
+- [ ] **DASH-050** · M · Drag-and-drop overview layout
+
+  Let users reorder overview cards.
+
+  **Frontend:** Install `@dnd-kit/core`. Wrap the stat cards and info cards in `<DndContext>`. Persist card order to `localStorage` key `dashboard-layout`. Add a "Reset layout" button in Settings.
+
+  **Acceptance criteria:**
+  - Cards draggable and droppable on Overview
+  - Order persists across page refresh
+  - Reset layout restores default order
+
+---
+
+- [ ] **DASH-051** · S · Replace gh CLI subprocess with GitHub REST API
+
+  Make GitHub integration more reliable by switching from `gh` subprocess calls to direct `httpx` REST API calls.
+
+  **Backend:** Replace all `subprocess.run(["gh", ...])` calls with `httpx.AsyncClient` calls to `https://api.github.com`. Read `GITHUB_TOKEN` env var for auth (fall back to `gh auth token` for backwards compat). Update error handling to parse HTTP status codes instead of subprocess exit codes.
+
+  **Acceptance criteria:**
+  - No `gh` binary dependency for core GitHub data
+  - Works with `GITHUB_TOKEN` env var
+  - Error messages reference HTTP status, not subprocess errors
+  - Existing API response shapes unchanged
+
+---
