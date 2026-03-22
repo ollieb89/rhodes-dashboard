@@ -11,19 +11,18 @@ import {
 } from "lucide-react";
 
 const nav = [
-  { href: "/", icon: LayoutDashboard },
-  { href: "/products", icon: Package },
-  { href: "/content", icon: FileText },
-  { href: "/agents", icon: Bot },
-  { href: "/metrics", icon: BarChart3 },
-  { href: "/incidents", icon: AlertTriangle },
-  { href: "/settings", icon: Settings },
+  { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/products", label: "Products", icon: Package },
+  { href: "/content", label: "Content", icon: FileText },
+  { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/metrics", label: "Metrics", icon: BarChart3 },
+  { href: "/incidents", label: "Incidents", icon: AlertTriangle },
+  { href: "/settings", label: "Settings", icon: Settings },
 ].map((item) => {
   const shortcut = NAVIGATION_SHORTCUTS.find((entry) => entry.href === item.href);
 
   return {
     ...item,
-    label: shortcut?.label ?? "",
     shortcut: shortcut?.keys[1],
   };
 });

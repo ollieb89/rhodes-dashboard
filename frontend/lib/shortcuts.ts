@@ -28,6 +28,12 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     keys: ["?"],
   },
   {
+    id: "dismiss-active-ui",
+    group: "General",
+    description: "Close or dismiss",
+    keys: ["Esc"],
+  },
+  {
     id: "nav-overview",
     group: "Navigation",
     description: "Go to Overview",
@@ -74,14 +80,6 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     keys: ["g", "i"],
     href: "/incidents",
     label: "Incidents",
-  },
-  {
-    id: "nav-settings",
-    group: "Navigation",
-    description: "Go to Settings",
-    keys: ["g", "s"],
-    href: "/settings",
-    label: "Settings",
   },
 ];
 

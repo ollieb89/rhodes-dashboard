@@ -60,6 +60,9 @@ export function ShortcutsHelpModal({
             <p className="mt-1 text-sm text-zinc-400">
               Current shortcuts available in Rhodes Command Center.
             </p>
+            <p className="mt-2 text-xs text-zinc-500">
+              Press Esc, click outside, or use the close button to dismiss this dialog.
+            </p>
           </div>
           <button
             type="button"
