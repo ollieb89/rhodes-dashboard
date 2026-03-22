@@ -634,7 +634,7 @@ export default function AgentsPage() {
             <Bot className="w-8 h-8 mb-2" />
             <p className="text-sm">No cron jobs found</p>
           </div>
-        ) : (
+        ) : view === "list" ? (
           <div className="space-y-2">
             {agents.map((agent) => {
               const runState = runStates[agent.id] ?? "idle";
@@ -679,7 +679,7 @@ export default function AgentsPage() {
               );
             })}
           </div>
-        )}
+        ) : null}
         <LogPanel />
         <p className="text-xs text-zinc-600">Last refreshed: {new Date(lastRefresh).toLocaleTimeString()} · auto-refreshes every 30 s</p>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useSettings } from "@/hooks/use-settings";
+import { useLayout } from "@/hooks/use-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Settings as SettingsIcon, RotateCcw, Trash2, Plus, Send } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -409,6 +410,7 @@ function WebhooksSection({ apiUrl }: { apiUrl: string }) {
 
 export default function SettingsPage() {
   const { settings, updateSettings, resetSettings, loaded, defaults } = useSettings();
+  const { resetLayout } = useLayout();
 
   if (!loaded) return null;
 
@@ -496,6 +498,23 @@ export default function SettingsPage() {
 
       {/* Webhooks */}
       <WebhooksSection apiUrl={settings.apiUrl} />
+
+      {/* Layout */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Layout</CardTitle>
+          <CardDescription>Manage the overview page card order.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <button
+            onClick={resetLayout}
+            className="inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors h-11"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset Dashboard Layout
+          </button>
+        </CardContent>
+      </Card>
 
       {/* Actions */}
       <Card>
