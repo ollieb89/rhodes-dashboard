@@ -755,7 +755,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P0 — Critical
 
-- [ ] **DASH-041** · M · Add CI/CD pipeline (GitHub Actions)
+- [x] **DASH-041** · M · Add CI/CD pipeline (GitHub Actions)
 
   Add `.github/workflows/ci.yml` that runs on every push/PR:
   - `tsc --noEmit` type check on frontend
@@ -803,7 +803,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-044** · S · Period-over-period deltas on stat cards
+- [x] **DASH-044** · S · Period-over-period deltas on stat cards
 
   Show week-over-week change on Overview stat cards.
 
@@ -832,7 +832,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-046** · S · Fix asyncio.gather() in /api/overview
+- [x] **DASH-046** · S · Fix asyncio.gather() in /api/overview
 
   The `/api/overview` endpoint fetches repos, articles, and agents sequentially. Wrap with `asyncio.gather()` for parallel execution.
 

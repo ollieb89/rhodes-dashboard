@@ -1,3 +1,5 @@
+[![CI](https://github.com/ollieb89/rhodes-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/ollieb89/rhodes-dashboard/actions/workflows/ci.yml)
+
 # Rhodes Command Center
 
 A local operational dashboard for the Rhodes AI agent system. Shows GitHub repo stats, dev.to article performance, and cron agent health in one dark-themed UI.
