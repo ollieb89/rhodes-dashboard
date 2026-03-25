@@ -845,7 +845,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-047** · M · Agent run activity heatmap
+- [x] **DASH-047** · M · Agent run activity heatmap
 
   GitHub contribution-grid style heatmap showing agent run frequency and success rate.
 
