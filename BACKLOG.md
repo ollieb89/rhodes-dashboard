@@ -860,7 +860,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-048** · M · Webhook delivery for alerts
+- [x] **DASH-048** · M · Webhook delivery for alerts
 
   Push incidents and alert triggers to external channels.
 
