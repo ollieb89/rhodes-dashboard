@@ -877,7 +877,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P2 — Nice-to-have
 
-- [ ] **DASH-049** · M · Agent dependency graph
+- [x] **DASH-049** · M · Agent dependency graph
 
   Visualize relationships between agents using React Flow.
 
