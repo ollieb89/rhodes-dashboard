@@ -904,7 +904,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-051** · S · Replace gh CLI subprocess with GitHub REST API
+- [x] **DASH-051** · S · Replace gh CLI subprocess with GitHub REST API
 
   Make GitHub integration more reliable by switching from `gh` subprocess calls to direct `httpx` REST API calls.
 
