@@ -891,7 +891,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-050** · M · Drag-and-drop overview layout
+- [x] **DASH-050** · M · Drag-and-drop overview layout
 
   Let users reorder overview cards.
 
