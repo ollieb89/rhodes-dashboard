@@ -102,8 +102,8 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
     setStats(null);
     setRunMsg("");
     Promise.all([
-      apiFetch("/api/crons/${agentId}/details").then((r) => r.json()),
-      apiFetch("/api/crons/${agentId}/stats").then((r) => r.json()).catch(() => null),
+      apiFetch(`/api/crons/${agentId}/details`).then((r) => r.json()),
+      apiFetch(`/api/crons/${agentId}/stats`).then((r) => r.json()).catch(() => null),
     ])
       .then(([d, s]) => {
         setDetails(d);
@@ -132,7 +132,7 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
     setRunState("loading");
     setRunMsg("");
     try {
-      const res = await apiFetch("/api/crons/${agentId}/run", { method: "POST" });
+      const res = await apiFetch(`/api/crons/${agentId}/run`, { method: "POST" });
       const d = await res.json().catch(() => ({}));
       setRunMsg(d.ok !== false ? (d.output ?? "Started") : (d.error ?? "Error"));
       setRunState("done");
@@ -150,8 +150,8 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
     const action = isActive ? "disable" : "enable";
     setToggleState("loading");
     try {
-      await apiFetch("/api/crons/${agentId}/${action}", { method: "POST" });
-      const d = await apiFetch("/api/crons/${agentId}/details").then((r) => r.json());
+      await apiFetch(`/api/crons/${agentId}/${action}`, { method: "POST" });
+      const d = await apiFetch(`/api/crons/${agentId}/details`).then((r) => r.json());
       setDetails(d);
       onAction?.();
     } catch { /* noop */ } finally {
@@ -240,6 +240,17 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
                   {stats.last_failure && (
                     <p className="text-[10px] text-zinc-500">Last failure: <span className="text-red-400">{fmtTs(stats.last_failure)}</span></p>
                   )}
+                  <div className="flex items-center gap-2 pt-1">
+                    <div className="flex-1 bg-zinc-800 rounded-full h-1.5">
+                      <div
+                        style={{ width: `${stats.success_rate_7d}%` }}
+                        className={`h-1.5 rounded-full ${stats.success_rate_7d >= 95 ? "bg-green-500" : stats.success_rate_7d >= 80 ? "bg-amber-500" : "bg-red-500"}`}
+                      />
+                    </div>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${stats.success_rate_7d >= 95 ? "bg-green-500/20 text-green-400" : stats.success_rate_7d >= 80 ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"}`}>
+                      {stats.success_rate_7d >= 95 ? "Healthy" : stats.success_rate_7d >= 80 ? "Degraded" : "Unhealthy"}
+                    </span>
+                  </div>
                 </div>
               )}
               <div className="flex items-center gap-2 flex-wrap">

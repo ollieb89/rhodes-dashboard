@@ -483,7 +483,7 @@ export default function AgentsPage() {
   const runAgent = async (id: string) => {
     setRunStates((prev) => ({ ...prev, [id]: "running" }));
     try {
-      const res = await apiFetch("/api/crons/${id}/run", { method: "POST" });
+      const res = await apiFetch(`/api/crons/${id}/run`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok !== false) {
         setRunStates((prev) => ({ ...prev, [id]: "success" }));
@@ -507,7 +507,7 @@ export default function AgentsPage() {
     const action = isActive ? "disable" : "enable";
     setToggleStates((prev) => ({ ...prev, [id]: "loading" }));
     try {
-      await apiFetch("/api/crons/${id}/${action}", { method: "POST" });
+      await apiFetch(`/api/crons/${id}/${action}`, { method: "POST" });
     } catch { /* best-effort */ } finally {
       setToggleStates((prev) => ({ ...prev, [id]: "idle" }));
       load();
@@ -548,6 +548,39 @@ export default function AgentsPage() {
             <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
+        {(() => {
+          const statsWithRuns = Object.values(agentStats).filter((s) => s.total_runs > 0);
+          if (statsWithRuns.length === 0) return null;
+          const fleetRate = Math.round(statsWithRuns.reduce((sum, s) => sum + s.success_rate_7d, 0) / statsWithRuns.length);
+          const totalRuns = statsWithRuns.reduce((sum, s) => sum + s.total_runs, 0);
+          const color = fleetRate >= 95 ? "text-green-400" : fleetRate >= 80 ? "text-amber-400" : "text-red-400";
+          const badgeClass = fleetRate >= 95 ? "bg-green-500/20 text-green-400" : fleetRate >= 80 ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400";
+          return (
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardContent className="px-5 py-4 flex items-center gap-6">
+                <div>
+                  <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide mb-1">Fleet SLA (7d)</p>
+                  <p className={`text-2xl font-semibold ${color}`}>{fleetRate}%</p>
+                </div>
+                <div className="h-8 w-px bg-zinc-800" />
+                <div>
+                  <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide mb-1">Total runs (7d)</p>
+                  <p className="text-lg font-medium text-zinc-200">{totalRuns}</p>
+                </div>
+                <div className="h-8 w-px bg-zinc-800" />
+                <div>
+                  <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide mb-1">Agents tracked</p>
+                  <p className="text-lg font-medium text-zinc-200">{statsWithRuns.length}</p>
+                </div>
+                <div className="ml-auto">
+                  <span className={`text-xs font-medium px-2 py-1 rounded ${badgeClass}`}>
+                    {fleetRate >= 95 ? "Healthy" : fleetRate >= 80 ? "Degraded" : "Unhealthy"}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
         {history.length > 1 && (
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader className="pb-2 pt-4 px-5">
