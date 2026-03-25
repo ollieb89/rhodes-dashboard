@@ -788,7 +788,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-043** · M · SLA/uptime tracking per agent
+- [x] **DASH-043** · M · SLA/uptime tracking per agent
 
   Track and display per-agent reliability metrics.
 
