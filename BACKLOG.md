@@ -773,7 +773,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P1 — Important
 
-- [ ] **DASH-042** · M · Agent execution timeline chart
+- [x] **DASH-042** · M · Agent execution timeline chart
 
   Add a Gantt-style timeline to the Agents page showing recent agent runs across time.
 
