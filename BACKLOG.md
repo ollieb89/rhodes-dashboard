@@ -924,7 +924,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P1 — Important
 
-- [ ] **DASH-052** · M · Finalization telemetry dashboard
+- [x] **DASH-052** · M · Finalization telemetry dashboard
 
   Track and surface delivery health for all agent-executed tasks.
 
