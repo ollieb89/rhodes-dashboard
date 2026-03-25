@@ -816,7 +816,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-045** · M · Configurable alerting rules
+- [x] **DASH-045** · M · Configurable alerting rules
 
   Let users define threshold-based alert rules that generate incidents.
 
