@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { UpdatedAgo } from "@/components/updated-ago";
 import { apiFetch } from "@/lib/api";
+import { LineChart, Line, ResponsiveContainer } from "recharts";
 
 const REFRESH_INTERVAL = 30000; // 30 seconds
 
@@ -75,6 +76,16 @@ interface Agent {
   next_run: string | null;
 }
 
+
+interface FinalizationStats {
+  total_workflows: number;
+  clean_finalizations: number;
+  synthetic_finalizations: number;
+  blocked: number;
+  median_visibility_lag_s: number;
+  blocked_rate_pct: number;
+  daily: { date: string; clean: number; total: number }[];
+}
 
 interface HistorySnapshot {
   timestamp: string;
@@ -150,21 +161,24 @@ export default function OverviewPage() {
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const [profile, setProfile] = useState<GitHubProfile | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [finalizationStats, setFinalizationStats] = useState<FinalizationStats | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [ovRes, prodRes, agentsRes, histRes, profRes, actRes] = await Promise.all([
+      const [ovRes, prodRes, agentsRes, histRes, profRes, actRes, finRes] = await Promise.all([
         apiFetch("/api/overview"),
         apiFetch("/api/products"),
         apiFetch("/api/agents"),
         apiFetch("/api/history?days=14").catch(() => null),
         apiFetch("/api/github/profile").catch(() => null),
         apiFetch("/api/activity?limit=20").catch(() => null),
+        apiFetch("/api/finalization/stats").catch(() => null),
       ]);
       const ov = await ovRes.json();
       if (profRes) { const profData = await profRes.json(); setProfile(profData); }
       if (actRes) { const actData = await actRes.json(); setActivity(actData.items ?? []); }
+      if (finRes && finRes.ok) { const finData = await finRes.json(); setFinalizationStats(finData); }
       const prod = await prodRes.json();
       const ag = await agentsRes.json();
       setStats(ov.stats);
@@ -556,6 +570,57 @@ export default function OverviewPage() {
                         </CardContent>
                       </Card>
                     </div>
+                  </SortableCard>
+                );
+              }
+
+              if (cardId === "delivery-health") {
+                const fs = finalizationStats;
+                const cleanPct = fs && fs.total_workflows > 0 ? Math.round((fs.clean_finalizations / fs.total_workflows) * 100) : null;
+                const sparkData = (fs?.daily ?? []).map((d) => ({
+                  value: d.total > 0 ? Math.round((d.clean / d.total) * 100) : 0,
+                }));
+                return (
+                  <SortableCard key="delivery-health" id="delivery-health">
+                    <Card className="bg-zinc-900 border-zinc-800">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-medium text-zinc-300">Delivery Health</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-4 gap-3">
+                          <div className="text-center">
+                            <p className="text-lg font-semibold text-zinc-100">{fs?.total_workflows ?? 0}</p>
+                            <p className="text-[10px] text-zinc-500">Total</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-lg font-semibold text-green-400">{cleanPct !== null ? `${cleanPct}%` : "—"}</p>
+                            <p className="text-[10px] text-zinc-500">Clean</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-lg font-semibold text-red-400">{fs?.blocked ?? 0}</p>
+                            <p className="text-[10px] text-zinc-500">Blocked</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-lg font-semibold text-zinc-100">{fs ? `${fs.median_visibility_lag_s}s` : "—"}</p>
+                            <p className="text-[10px] text-zinc-500">Median lag</p>
+                          </div>
+                        </div>
+                        {sparkData.length > 0 && (
+                          <div className="h-12">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={sparkData}>
+                                <Line type="monotone" dataKey="value" stroke="#4ade80" strokeWidth={1.5} dot={false} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
+                        <div>
+                          <Link href="/delivery" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+                            View full log →
+                          </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </SortableCard>
                 );
               }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 const STORAGE_KEY = "dashboard-layout";
-const DEFAULT_ORDER = ["profile", "stats", "cron-health", "recent-repos", "activity"];
+const DEFAULT_ORDER = ["profile", "stats", "cron-health", "delivery-health", "recent-repos", "activity"];
 
 export function useLayout() {
   const [order, setOrder] = useState<string[]>(DEFAULT_ORDER);

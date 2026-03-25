@@ -1666,6 +1666,127 @@ async def crons_heatmap(days: int = Query(default=90, ge=1, le=365)):
     return {"cells": cells, "days": days}
 
 
+# ─── DASH-052: Finalization telemetry ────────────────────────────────────────
+
+def _init_finalization_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""CREATE TABLE IF NOT EXISTS finalization_log (
+        id TEXT PRIMARY KEY,
+        task_id TEXT DEFAULT "",
+        agent_session TEXT DEFAULT "",
+        commit_hash TEXT DEFAULT "",
+        branch TEXT DEFAULT "",
+        pushed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        diff_clean INTEGER DEFAULT 1,
+        duration_s REAL DEFAULT 0,
+        status TEXT DEFAULT "clean"
+    )""")
+    conn.commit()
+    conn.close()
+
+
+class FinalizationRecord(_BaseModel):
+    task_id: _Optional[str] = ""
+    agent_session: _Optional[str] = ""
+    commit_hash: _Optional[str] = ""
+    branch: _Optional[str] = ""
+    diff_clean: _Optional[bool] = True
+    duration_s: _Optional[float] = 0.0
+    status: _Optional[str] = "clean"
+
+
+@app.post("/api/finalization/record")
+async def finalization_record(body: FinalizationRecord):
+    _init_finalization_db()
+    rec_id = str(_uuid.uuid4())
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO finalization_log (id, task_id, agent_session, commit_hash, branch, diff_clean, duration_s, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (rec_id, body.task_id or "", body.agent_session or "", body.commit_hash or "", body.branch or "", 1 if body.diff_clean else 0, body.duration_s or 0.0, body.status or "clean"),
+    )
+    conn.commit()
+    conn.close()
+    return {"ok": True, "id": rec_id}
+
+
+@app.get("/api/finalization/stats")
+async def finalization_stats():
+    _init_finalization_db()
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute("SELECT status, duration_s, pushed_at FROM finalization_log").fetchall()
+    conn.close()
+
+    total = len(rows)
+    clean = sum(1 for r in rows if r[0] == "clean")
+    synthetic = sum(1 for r in rows if r[0] == "synthetic")
+    blocked = sum(1 for r in rows if r[0] == "blocked")
+
+    clean_durations = sorted(r[1] for r in rows if r[0] == "clean" and r[1] is not None)
+    if clean_durations:
+        n = len(clean_durations)
+        mid = n // 2
+        median_lag = clean_durations[mid] if n % 2 == 1 else (clean_durations[mid - 1] + clean_durations[mid]) / 2.0
+    else:
+        median_lag = 0.0
+
+    blocked_rate = round(blocked / total * 100, 1) if total > 0 else 0.0
+
+    # Last 14 days daily breakdown
+    now = datetime.now(timezone.utc)
+    daily_map: dict[str, dict] = {}
+    for i in range(14):
+        d = (now - timedelta(days=13 - i)).strftime("%Y-%m-%d")
+        daily_map[d] = {"date": d, "clean": 0, "total": 0}
+
+    for r in rows:
+        pushed_at = r[2] or ""
+        try:
+            dt = datetime.fromisoformat(pushed_at.replace("Z", "+00:00"))
+            d = dt.strftime("%Y-%m-%d")
+        except Exception:
+            continue
+        if d in daily_map:
+            daily_map[d]["total"] += 1
+            if r[0] == "clean":
+                daily_map[d]["clean"] += 1
+
+    return {
+        "total_workflows": total,
+        "clean_finalizations": clean,
+        "synthetic_finalizations": synthetic,
+        "blocked": blocked,
+        "median_visibility_lag_s": round(median_lag, 1),
+        "blocked_rate_pct": blocked_rate,
+        "daily": list(daily_map.values()),
+    }
+
+
+@app.get("/api/finalization/log")
+async def finalization_log(limit: int = Query(default=50, le=200)):
+    _init_finalization_db()
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        "SELECT id, task_id, agent_session, commit_hash, branch, pushed_at, diff_clean, duration_s, status FROM finalization_log ORDER BY pushed_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    records = [
+        {
+            "id": r[0],
+            "task_id": r[1],
+            "agent_session": r[2],
+            "commit_hash": r[3],
+            "branch": r[4],
+            "pushed_at": r[5],
+            "diff_clean": bool(r[6]),
+            "duration_s": r[7],
+            "status": r[8],
+        }
+        for r in rows
+    ]
+    return {"records": records}
+
+
 # ─── DASH-049: Agent dependency graph ────────────────────────────────────────
 
 @app.get("/api/agents/deps")
