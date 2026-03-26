@@ -1803,3 +1803,86 @@ async def get_agent_deps():
         return {"edges": data.get("edges", [])}
     except (OSError, json.JSONDecodeError):
         return {"edges": []}
+
+
+# ─── DASH-053: Agent Logs Terminal ────────────────────────────────────────────
+
+import asyncio
+import glob
+import os
+from datetime import datetime, timezone
+from fastapi.responses import StreamingResponse
+
+CRON_LOGS_DIR = os.path.expanduser("~/.openclaw/cron/runs")
+
+
+@app.get("/api/crons/{cron_id}/logs/tail")
+async def get_cron_logs_tail(cron_id: str, lines: int = Query(default=500, ge=1, le=5000)):
+    """Return the last N lines from the agents log file."""
+    log_file = os.path.join(CRON_LOGS_DIR, f"{cron_id}.jsonl")
+    
+    if not os.path.isfile(log_file):
+        return {"lines": [], "file": None}
+    
+    def read_tail():
+        try:
+            with open(log_file, "r") as f:
+                all_lines = f.readlines()
+                # Return last N lines, stripped of trailing newlines
+                return [line.rstrip("\n") for line in all_lines[-lines:]]
+        except OSError:
+            return []
+    
+    lines_data = await asyncio.to_thread(read_tail)
+    return {"lines": lines_data, "file": log_file}
+
+
+@app.get("/api/crons/{cron_id}/logs/stream")
+async def stream_cron_logs(cron_id: str):
+    """SSE endpoint that streams new lines from the agents log file in real time."""
+    log_file = os.path.join(CRON_LOGS_DIR, f"{cron_id}.jsonl")
+    
+    if not os.path.isfile(log_file):
+        async def not_found_stream():
+            yield "data: [Log file not found]\n\n"
+        return StreamingResponse(
+            not_found_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+    
+    async def log_event_generator():
+        # Get initial file size to track new lines only
+        last_size = await asyncio.to_thread(lambda: os.path.getsize(log_file))
+        
+        while True:
+            await asyncio.sleep(1)
+            
+            try:
+                current_size = await asyncio.to_thread(lambda: os.path.getsize(log_file))
+                
+                if current_size > last_size:
+                    # New content added
+                    new_content = await asyncio.to_thread(
+                        lambda: open(log_file, "r").read()[last_size:current_size]
+                    )
+                    last_size = current_size
+                    
+                    # Send each new line
+                    for line in new_content.split("\n"):
+                        if line.strip():
+                            yield f"data: {line}\n\n"
+                elif current_size < last_size:
+                    # File was truncated/rotated, reset position
+                    last_size = current_size
+                    
+            except OSError:
+                # File may have been deleted
+                yield "data: [Log file unavailable]\n\n"
+                break
+    
+    return StreamingResponse(
+        log_event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

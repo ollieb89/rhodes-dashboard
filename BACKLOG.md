@@ -957,3 +957,89 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
   - No regression on existing pages
 
 ---
+
+---
+
+## Batch 8 — Deep Observability & User Controls
+
+### P1 — Important
+
+- [x] **DASH-053** · M · Agent Logs Terminal
+
+  Add a real-time terminal log viewer to the agent details drawer on the Agents page.
+
+  **Backend:** Add `GET /api/crons/{id}/logs/tail?lines=500` — reads the latest log file for the agent from `~/.openclaw/cron/runs/` and returns the last N lines. Add `GET /api/crons/{id}/logs/stream` (SSE) that tails the log file for live updates.
+
+  **Frontend:** In the agent details drawer, add a "Logs" tab with a dark terminal box (monospace, overflow-y-scroll). It should load the initial 500 lines then connect to the SSE stream for live tailing. Add a "Copy to clipboard" button.
+
+  **Acceptance criteria:**
+  - Logs load correctly for existing agent runs
+  - Live tailing works over SSE
+  - Monospace formatting looks like a terminal
+
+---
+
+- [ ] **DASH-054** · M · System Resource Monitoring
+
+  Show host machine resource stats on the Overview page to monitor the backend server health.
+
+  **Backend:** Add `psutil` dependency. Add `GET /api/system/resources` returning: `{ cpu_pct, ram_pct, disk_pct, uptime_s, load_avg }`.
+
+  **Frontend:** New stat card on Overview: "Host Resources". Shows three gauges or progress bars for CPU/RAM/Disk usage. Shows uptime in human-readable format (e.g., "Uptime: 2d 4h").
+
+  **Acceptance criteria:**
+  - Real-time host stats visible on Overview
+  - Gauges color-coded (green <70%, amber 70-90%, red >90%)
+
+---
+
+- [ ] **DASH-055** · S · Repository Configuration
+
+  Let Ollie add/remove GitHub repositories from the monitoring list directly from the dashboard.
+
+  **Backend:** Add SQLite table `monitored_repos(repo_full_name PRIMARY KEY, added_at)`. Modify GitHub fetch functions to first check this table. If empty, default to existing hardcoded repos. Add `POST/DELETE /api/settings/repos` for CRUD.
+
+  **Frontend:** In the Settings page, add a "Monitored Repositories" card with a list of repo names, a delete button per repo, and an "Add repo" form (input: `owner/name`).
+
+  **Acceptance criteria:**
+  - Adding/removing a repo updates the Products and Overview pages instantly
+  - Persisted in SQLite
+
+---
+
+### P2 — Nice-to-have
+
+- [ ] **DASH-056** · M · Article Performance Benchmarking
+
+  Add benchmarking to the Content page to help identify outliers.
+
+  **Frontend only:** Compute the median view count and reaction count across all articles. For each article, show an "Engagement Ratio" (e.g., "1.4x avg views") and a small badge if it's in the top 10% (e.g., "Top Performer").
+
+  **Acceptance criteria:**
+  - Benchmark labels visible on all article rows
+  - Highlights top-performing content based on relative data
+
+---
+
+- [ ] **DASH-057** · S · Sidebar Customization
+
+  Let users pin their most-used pages to the top of the sidebar.
+
+  **Frontend:** Add a "pin" icon next to each link in the sidebar. Pinned links move to a "Favorites" group at the top. Persist in `localStorage` key `sidebar-pins`.
+
+  **Acceptance criteria:**
+  - Pinning/unpinning works instantly
+  - Order persists across refresh
+
+---
+
+- [ ] **DASH-058** · M · Real-time Incident Feed
+
+  Improve the Incident page visibility.
+
+  **Frontend:** On the Overview page, if there are active incidents (severity = critical or warning), show a "Live Incidents" alert banner at the very top. Add a small "New" indicator to the Incidents sidebar link when new incidents are detected (count persisted in session state).
+
+  **Acceptance criteria:**
+  - Incident banner appears only when active issues exist
+  - "New" badge appears on sidebar link correctly
+

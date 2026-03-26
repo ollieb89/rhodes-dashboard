@@ -3,12 +3,13 @@
 import React from "react";
 import { useEffect, useState, useRef } from "react";
 import {
-  X, Play, PauseCircle, PlayCircle, RefreshCw,
+  X, Play, PauseCircle, PlayCircle, RefreshCw, Terminal, Info,
   Clock, Bot, Cpu, Radio, ChevronRight, AlertCircle, CheckCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "@/lib/api";
+import { LogsPanel } from "./logs-panel";
 
 
 interface RunEntry {
@@ -85,6 +86,7 @@ interface AgentDrawerProps {
 }
 
 type ActionState = "idle" | "loading" | "done";
+type TabId = "overview" | "logs";
 
 export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
   const [details, setDetails] = useState<AgentDetails | null>(null);
@@ -93,6 +95,7 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
   const [runState, setRunState] = useState<ActionState>("idle");
   const [runMsg, setRunMsg] = useState("");
   const [toggleState, setToggleState] = useState<ActionState>("idle");
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -101,6 +104,7 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
     setDetails(null);
     setStats(null);
     setRunMsg("");
+    setActiveTab("overview");
     Promise.all([
       apiFetch(`/api/crons/${agentId}/details`).then((r) => r.json()),
       apiFetch(`/api/crons/${agentId}/stats`).then((r) => r.json()).catch(() => null),
@@ -173,13 +177,36 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
           </div>
           <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors"><X className="w-4 h-4" /></button>
         </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-zinc-800">
+          {[
+            { id: "overview", label: "Overview", icon: Info },
+            { id: "logs", label: "Logs", icon: Terminal },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as TabId)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 ${
+                activeTab === tab.id
+                  ? "text-zinc-200 border-violet-500 bg-zinc-800/50"
+                  : "text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-zinc-800/30"
+              }`}
+            >
+              <tab.icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="space-y-3 p-5">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 bg-zinc-800 rounded-lg" />)}</div>
           ) : details?.error ? (
             <div className="p-5 text-sm text-red-400">{details.error}</div>
           ) : details ? (
-            <div className="space-y-5 p-5">
+            <div className="p-5">
+              {activeTab === "overview" && (<div className="space-y-5">
               <div className="grid grid-cols-2 gap-3">
                 {([
                   { label: "Status", content: <Badge className={`text-[10px] border-0 ${statusBadgeClass(details.status)}`}>{details.status}</Badge> },
@@ -293,6 +320,8 @@ export function AgentDrawer({ agentId, onClose, onAction }: AgentDrawerProps) {
                   {JSON.stringify(details.raw, null, 2)}
                 </pre>
               </details>
+            </div>)}
+              {activeTab === "logs" && agentId && <LogsPanel agentId={agentId} />}
             </div>
           ) : null}
         </div>
