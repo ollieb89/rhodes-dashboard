@@ -87,6 +87,14 @@ interface FinalizationStats {
   daily: { date: string; clean: number; total: number }[];
 }
 
+interface SystemResources {
+  cpu_pct: number;
+  ram_pct: number;
+  disk_pct: number;
+  uptime_s: number;
+  load_avg: number[];
+}
+
 interface HistorySnapshot {
   timestamp: string;
   total_repos: number;
@@ -162,11 +170,12 @@ export default function OverviewPage() {
   const [profile, setProfile] = useState<GitHubProfile | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [finalizationStats, setFinalizationStats] = useState<FinalizationStats | null>(null);
+  const [resources, setResources] = useState<SystemResources | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [ovRes, prodRes, agentsRes, histRes, profRes, actRes, finRes] = await Promise.all([
+      const [ovRes, prodRes, agentsRes, histRes, profRes, actRes, finRes, resRes] = await Promise.all([
         apiFetch("/api/overview"),
         apiFetch("/api/products"),
         apiFetch("/api/agents"),
@@ -174,11 +183,13 @@ export default function OverviewPage() {
         apiFetch("/api/github/profile").catch(() => null),
         apiFetch("/api/activity?limit=20").catch(() => null),
         apiFetch("/api/finalization/stats").catch(() => null),
+        apiFetch("/api/system/resources").catch(() => null),
       ]);
       const ov = await ovRes.json();
       if (profRes) { const profData = await profRes.json(); setProfile(profData); }
       if (actRes) { const actData = await actRes.json(); setActivity(actData.items ?? []); }
       if (finRes && finRes.ok) { const finData = await finRes.json(); setFinalizationStats(finData); }
+      if (resRes && resRes.ok) { const resData = await resRes.json(); setResources(resData); }
       const prod = await prodRes.json();
       const ag = await agentsRes.json();
       setStats(ov.stats);
@@ -618,6 +629,71 @@ export default function OverviewPage() {
                           <Link href="/delivery" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
                             View full log →
                           </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </SortableCard>
+                );
+              }
+
+              
+              if (cardId === "resources") {
+                if (!resources) return null;
+                const formatUptime = (s: number) => {
+                  const d = Math.floor(s / 86400);
+                  const h = Math.floor((s % 86400) / 3600);
+                  const m = Math.floor((s % 3600) / 60);
+                  if (d > 0) return `${d}d ${h}h`;
+                  if (h > 0) return `${h}h ${m}m`;
+                  return `${m}m`;
+                };
+                const getStatusColor = (pct: number) => {
+                   if (pct > 90) return "bg-red-500";
+                   if (pct > 70) return "bg-amber-500";
+                   return "bg-green-500";
+                };
+                return (
+                  <SortableCard key="resources" id="resources">
+                    <Card className="bg-zinc-900 border-zinc-800">
+                      <CardHeader className="pb-3 px-5 pt-4">
+                        <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                           <Activity className="w-4 h-4 text-zinc-400" />
+                           Host Resources
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-5 pb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs text-zinc-400">
+                              <span>CPU Usage</span>
+                              <span>{resources.cpu_pct}%</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                              <div className={`h-full ${getStatusColor(resources.cpu_pct)} transition-all duration-500`} style={{ width: `${resources.cpu_pct}%` }} />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs text-zinc-400">
+                              <span>RAM Usage</span>
+                              <span>{resources.ram_pct}%</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                              <div className={`h-full ${getStatusColor(resources.ram_pct)} transition-all duration-500`} style={{ width: `${resources.ram_pct}%` }} />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs text-zinc-400">
+                              <span>Disk Usage</span>
+                              <span>{resources.disk_pct}%</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                              <div className={`h-full ${getStatusColor(resources.disk_pct)} transition-all duration-500`} style={{ width: `${resources.disk_pct}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-zinc-800 flex items-center justify-between text-[11px] text-zinc-500">
+                          <span>Uptime: {formatUptime(resources.uptime_s)}</span>
+                          <span>Load: {resources.load_avg.map(v => v.toFixed(2)).join(", ")}</span>
                         </div>
                       </CardContent>
                     </Card>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 const STORAGE_KEY = "dashboard-layout";
-const DEFAULT_ORDER = ["profile", "stats", "cron-health", "delivery-health", "recent-repos", "activity"];
+const DEFAULT_ORDER = ["profile", "stats", "resources", "cron-health", "delivery-health", "recent-repos", "activity"];
 
 export function useLayout() {
   const [order, setOrder] = useState<string[]>(DEFAULT_ORDER);
@@ -14,7 +14,12 @@ export function useLayout() {
       if (stored) {
         const parsed = JSON.parse(stored) as string[];
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setOrder(parsed);
+          // Merge stored with default to pick up new cards
+          const merged = [...parsed];
+          DEFAULT_ORDER.forEach(id => {
+            if (!merged.includes(id)) merged.push(id);
+          });
+          setOrder(merged);
         }
       }
     } catch {

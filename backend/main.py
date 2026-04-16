@@ -1,3 +1,4 @@
+import time
 import asyncio
 import json
 import os
@@ -6,6 +7,7 @@ import subprocess
 from datetime import datetime, timezone, timedelta
 
 import httpx
+import psutil
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -784,6 +786,34 @@ async def test_webhook(webhook_id: str):
     result = await _deliver_webhook(url, payload, secret or "")
     return result
 
+
+
+# ─── DASH-054: System Resource Monitoring ─────────────────────────────────────
+
+@app.get("/api/system/resources")
+async def get_system_resources():
+    """Return host machine resource usage stats."""
+    cpu_pct = psutil.cpu_percent()
+    ram = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    
+    # Uptime
+    boot_time = psutil.boot_time()
+    uptime_s = time.time() - boot_time
+    
+    # Load avg
+    try:
+        load_avg = os.getloadavg()
+    except (AttributeError, OSError):
+        load_avg = [0.0, 0.0, 0.0]
+        
+    return {
+        "cpu_pct": cpu_pct,
+        "ram_pct": ram.percent,
+        "disk_pct": disk.percent,
+        "uptime_s": round(uptime_s),
+        "load_avg": load_avg,
+    }
 
 if __name__ == "__main__":
     import uvicorn
