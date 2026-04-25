@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import {
   LayoutDashboard, Package, FileText, Bot, BarChart3,
-  Zap, Menu, X, Sun, Moon, AlertTriangle, Settings,
+  Zap, Menu, X, Sun, Moon, AlertTriangle, Settings, Truck,
 } from "lucide-react";
 
 const nav = [
@@ -16,6 +16,7 @@ const nav = [
   { href: "/content", label: "Content", icon: FileText },
   { href: "/agents", label: "Agents", icon: Bot },
   { href: "/metrics", label: "Metrics", icon: BarChart3 },
+  { href: "/delivery", label: "Delivery", icon: Truck },
   { href: "/incidents", label: "Incidents", icon: AlertTriangle },
   { href: "/settings", label: "Settings", icon: Settings },
 ].map((item) => {

@@ -110,6 +110,15 @@ def _init_db() -> None:
     conn.close()
 
 
+def _init_repos_db() -> None:
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""CREATE TABLE IF NOT EXISTS monitored_repos (
+        repo_full_name TEXT PRIMARY KEY,
+        added_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.commit()
+    conn.close()
+
 def _init_alerts_db() -> None:
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""CREATE TABLE IF NOT EXISTS alert_rules (
@@ -148,6 +157,27 @@ def run(cmd: list[str]) -> str:
 
 _github_token_cache: str = ""
 
+
+async def _get_all_monitored_repos_raw() -> list[dict]:
+    """Fetch raw data for all monitored repos, falling back to all ollieb89 repos if none specified."""
+    _init_repos_db()
+    conn = sqlite3.connect(DB_PATH)
+    monitored = [r[0] for r in conn.execute("SELECT repo_full_name FROM monitored_repos").fetchall()]
+    conn.close()
+
+    if not monitored:
+        # Fallback to default
+        try:
+            repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
+            return repos_raw if isinstance(repos_raw, list) else []
+        except Exception:
+            return []
+    # Fetch specific repos in parallel
+    results = await asyncio.gather(
+        *[github_api(f"/repos/{name}") for name in monitored],
+        return_exceptions=True
+    )
+    return [r for r in results if not isinstance(r, Exception) and isinstance(r, dict)]
 
 async def github_api(path: str):
     """Authenticated async GET to GitHub REST API. Raises HTTPException(503) if no token."""
@@ -199,7 +229,7 @@ async def get_products():
     if cached is not None:
         return cached
     try:
-        repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
+        repos_raw = await _get_all_monitored_repos_raw()
         repos = [_normalize_repo(r) for r in (repos_raw if isinstance(repos_raw, list) else [])]
         result = {"repos": repos, "total": len(repos)}
         _cache.set("/api/products", result, 120)
@@ -347,7 +377,7 @@ async def get_metrics():
 
     async def fetch_repos():
         try:
-            repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
+            repos_raw = await _get_all_monitored_repos_raw()
             return [_normalize_repo(r) for r in (repos_raw if isinstance(repos_raw, list) else [])]
         except Exception:
             return []
@@ -485,8 +515,8 @@ async def get_history(days: int = Query(default=7, ge=1)):
 
 async def _get_products_count() -> int:
     try:
-        repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
-        return len(repos_raw) if isinstance(repos_raw, list) else 0
+        repos_raw = await _get_all_monitored_repos_raw()
+        return len(repos_raw)
     except Exception:
         return 0
 
@@ -516,9 +546,8 @@ async def _get_agents_count() -> int:
 
 async def _get_total_stars() -> int:
     try:
-        repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
-        repos = repos_raw if isinstance(repos_raw, list) else []
-        return sum(r.get("stargazers_count", 0) for r in repos)
+        repos_raw = await _get_all_monitored_repos_raw()
+        return sum(r.get("stargazers_count", 0) for r in (repos_raw if isinstance(repos_raw, list) else []))
     except Exception:
         return 0
 
@@ -788,6 +817,42 @@ async def test_webhook(webhook_id: str):
 
 
 
+# ─── DASH-055: Repository Configuration ─────────────────────────────────────
+
+@app.get("/api/settings/repos")
+async def list_monitored_repos():
+    _init_repos_db()
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute("SELECT repo_full_name, added_at FROM monitored_repos ORDER BY added_at DESC").fetchall()
+    conn.close()
+    return {"repos": [{"repo_full_name": r[0], "added_at": r[1]} for r in rows]}
+
+class RepoCreate(_BaseModel):
+    repo_full_name: str
+
+@app.post("/api/settings/repos")
+async def add_monitored_repo(body: RepoCreate):
+    _init_repos_db()
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("INSERT INTO monitored_repos (repo_full_name) VALUES (?)", (body.repo_full_name,))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        pass
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/settings/repos/{owner}/{repo}")
+async def delete_monitored_repo(owner: str, repo: str):
+    repo_full_name = f"{owner}/{repo}"
+    _init_repos_db()
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("DELETE FROM monitored_repos WHERE repo_full_name = ?", (repo_full_name,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
 # ─── DASH-054: System Resource Monitoring ─────────────────────────────────────
 
 @app.get("/api/system/resources")
@@ -973,7 +1038,7 @@ async def get_ci():
 
     # Get repo list
     try:
-        repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
+        repos_raw = await _get_all_monitored_repos_raw()
         repos = repos_raw if isinstance(repos_raw, list) else []
         repo_names = [r["name"] for r in repos]
     except Exception as e:

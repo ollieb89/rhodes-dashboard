@@ -74,12 +74,28 @@ export const SHORTCUTS: ShortcutDefinition[] = [
     label: "Metrics",
   },
   {
+    id: "nav-delivery",
+    group: "Navigation",
+    description: "Go to Delivery",
+    keys: ["g", "d"],
+    href: "/delivery",
+    label: "Delivery",
+  },
+  {
     id: "nav-incidents",
     group: "Navigation",
     description: "Go to Incidents",
     keys: ["g", "i"],
     href: "/incidents",
     label: "Incidents",
+  },
+  {
+    id: "nav-settings",
+    group: "Navigation",
+    description: "Go to Settings",
+    keys: ["g", "s"],
+    href: "/settings",
+    label: "Settings",
   },
 ];
 

@@ -310,6 +310,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 - **DASH-005** · M · Build out the Metrics page with real data
 - **DASH-006** · M · Add cron health card to Overview page
 - **DASH-007** · M · Improve the Agents page with a proper list and run button
+- **DASH-052** · M · Finalization telemetry dashboard
 
 ---
 
@@ -979,7 +980,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-054** · M · System Resource Monitoring
+- [x] **DASH-054** · M · System Resource Monitoring
 
   Show host machine resource stats on the Overview page to monitor the backend server health.
 

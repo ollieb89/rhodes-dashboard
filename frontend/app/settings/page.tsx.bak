@@ -210,114 +210,204 @@ function WebhooksSection({ apiUrl }: { apiUrl: string }) {
   const [secret, setSecret] = useState("");
   const [adding, setAdding] = useState(false);
   const [testResults, setTestResults] = useState<Record<string, string>>({});
+
   const fetchWebhooks = async () => {
     try {
       const res = await fetch(`${apiUrl}/api/webhooks`);
       const data = await res.json();
       setWebhooks(Array.isArray(data) ? data : []);
-    } catch { setWebhooks([]); } finally { setLoading(false); }
+    } catch {
+      setWebhooks([]);
+    } finally {
+      setLoading(false);
+    }
   };
-  useEffect(() => { fetchWebhooks(); }, [apiUrl]);
+
+  useEffect(() => {
+    fetchWebhooks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl]);
+
   const toggleEvent = (ev: string) => {
-    setSelectedEvents((prev) => prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev]);
+    setSelectedEvents((prev) =>
+      prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev]
+    );
   };
+
   const handleAdd = async () => {
     if (!url.trim()) return;
     setAdding(true);
     try {
       await fetch(`${apiUrl}/api/webhooks`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url.trim(), events: selectedEvents, secret: secret.trim() || undefined }),
       });
-      setUrl(""); setSecret(""); setSelectedEvents(["alert"]); await fetchWebhooks();
-    } finally { setAdding(false); }
+      setUrl("");
+      setSecret("");
+      setSelectedEvents(["alert"]);
+      await fetchWebhooks();
+    } finally {
+      setAdding(false);
+    }
   };
+
   const handleDelete = async (id: string) => {
     await fetch(`${apiUrl}/api/webhooks/${id}`, { method: "DELETE" });
     await fetchWebhooks();
   };
+
   const handleTest = async (id: string) => {
-    setTestResults((prev) => ({ ...prev, [id]: "..." }));
+    setTestResults((prev) => ({ ...prev, [id]: "…" }));
     try {
       const res = await fetch(`${apiUrl}/api/webhooks/${id}/test`, { method: "POST" });
       const data = await res.json();
-      setTestResults((prev) => ({ ...prev, [id]: data.ok ? `${data.status_code} OK` : (data.error ?? `${data.status_code}`) }));
-    } catch { setTestResults((prev) => ({ ...prev, [id]: "Error" })); }
+      if (data.ok) {
+        setTestResults((prev) => ({ ...prev, [id]: `${data.status_code} OK` }));
+      } else {
+        setTestResults((prev) => ({ ...prev, [id]: data.error ?? `${data.status_code}` }));
+      }
+    } catch (e) {
+      setTestResults((prev) => ({ ...prev, [id]: "Error" }));
+    }
   };
-  const inputClass = "rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 h-11";
+
+  const inputClass =
+    "rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent h-11";
+
   return (
     <Card>
-      <CardHeader><CardTitle>Webhooks</CardTitle><CardDescription>Receive alert notifications.</CardDescription></CardHeader>
+      <CardHeader>
+        <CardTitle>Webhooks</CardTitle>
+        <CardDescription>
+          Receive alert notifications via HTTP webhook.
+        </CardDescription>
+      </CardHeader>
       <CardContent className="space-y-4">
+        {/* Add form */}
         <div className="space-y-3">
-          <div className="flex gap-2">
-            <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="URL" className={inputClass + " flex-1"} />
-            <input type="text" value={secret} onChange={(e) => setSecret(e.target.value)} placeholder="Secret" className={inputClass + " w-48"} />
-          </div>
-          <div className="flex items-center gap-4">
-            {ALL_EVENTS.map((ev) => (
-              <label key={ev} className="flex items-center gap-1 text-sm"><input type="checkbox" checked={selectedEvents.includes(ev)} onChange={() => toggleEvent(ev)} /> {ev}</label>
-            ))}
-            <button onClick={handleAdd} disabled={adding || !url.trim()} className="ml-auto bg-zinc-800 px-4 h-11 rounded border border-zinc-700 hover:bg-zinc-700">Add Webhook</button>
-          </div>
-        </div>
-        {!loading && webhooks.map((wh) => (
-          <div key={wh.id} className="flex items-center justify-between p-2 border border-zinc-800 rounded">
-            <div className="text-xs truncate max-w-xs">{wh.url}</div>
-            <div className="flex gap-2">
-              <button onClick={() => handleTest(wh.id)} className="text-violet-400">Test</button>
-              <button onClick={() => handleDelete(wh.id)} className="text-red-400">Delete</button>
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="flex flex-col gap-1 flex-1 min-w-48">
+              <label className="text-xs text-zinc-500">URL</label>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://hooks.slack.com/..."
+                className={inputClass + " w-full"}
+              />
+            </div>
+            <div className="flex flex-col gap-1 w-48">
+              <label className="text-xs text-zinc-500">Secret (optional)</label>
+              <input
+                type="text"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                placeholder="hmac secret"
+                className={inputClass + " w-full"}
+              />
             </div>
           </div>
-        ))}
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="text-xs text-zinc-500">Events:</span>
+            {ALL_EVENTS.map((ev) => (
+              <label key={ev} className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedEvents.includes(ev)}
+                  onChange={() => toggleEvent(ev)}
+                  className="accent-violet-500"
+                />
+                {ev}
+              </label>
+            ))}
+            <button
+              onClick={handleAdd}
+              disabled={adding || !url.trim()}
+              className="ml-auto inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors h-11 disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" />
+              Add Webhook
+            </button>
+          </div>
+        </div>
+
+        {/* List */}
+        {loading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-10 rounded bg-zinc-800 animate-pulse" />
+            ))}
+          </div>
+        ) : webhooks.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            No webhooks configured. Add one to receive alerts in Slack, Discord, or any HTTP endpoint.
+          </p>
+        ) : (
+          <div className="rounded-md border border-zinc-800 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800 text-zinc-500">
+                  <th className="text-left px-3 py-2 font-medium">URL</th>
+                  <th className="text-left px-3 py-2 font-medium">Events</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {webhooks.map((wh) => (
+                  <tr key={wh.id} className="border-b border-zinc-800 last:border-0">
+                    <td className="px-3 py-2 text-zinc-200 max-w-xs truncate font-mono text-xs">
+                      {wh.url}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1 flex-wrap">
+                        {wh.events.map((ev) => (
+                          <span key={ev} className="text-xs rounded-full px-2 py-0.5 bg-zinc-800 text-zinc-400 border border-zinc-700">
+                            {ev}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        {testResults[wh.id] && (
+                          <span
+                            className={
+                              testResults[wh.id].includes("OK")
+                                ? "text-xs text-emerald-400"
+                                : "text-xs text-red-400"
+                            }
+                          >
+                            {testResults[wh.id]}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleTest(wh.id)}
+                          className="text-zinc-500 hover:text-violet-400 transition-colors"
+                          title="Send test"
+                        >
+                          <Send className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(wh.id)}
+                          className="text-zinc-500 hover:text-red-400 transition-colors"
+                          title="Delete webhook"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-interface MonitoredRepo { repo_full_name: string; added_at: string; }
-function MonitoredReposSection({ apiUrl }: { apiUrl: string }) {
-  const [repos, setRepos] = useState<MonitoredRepo[]>([]);
-  const [newRepo, setNewRepo] = useState("");
-  const fetchRepos = async () => {
-    try {
-      const res = await fetch(`${apiUrl}/api/settings/repos`);
-      const data = await res.json();
-      setRepos(data.repos ?? []);
-    } catch { setRepos([]); }
-  };
-  useEffect(() => { fetchRepos(); }, [apiUrl]);
-  const handleAdd = async () => {
-    if (!newRepo.trim()) return;
-    await fetch(`${apiUrl}/api/settings/repos`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ repo_full_name: newRepo.trim() }),
-    });
-    setNewRepo(""); await fetchRepos();
-  };
-  const handleDelete = async (fn: string) => {
-    const [o, n] = fn.split("/");
-    await fetch(`${apiUrl}/api/settings/repos/${o}/${n}`, { method: "DELETE" });
-    await fetchRepos();
-  };
-  return (
-    <Card>
-      <CardHeader><CardTitle>Monitored Repositories</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex gap-2">
-          <input type="text" value={newRepo} onChange={(e) => setNewRepo(e.target.value)} placeholder="owner/repo" className="flex-1 bg-zinc-900 border border-zinc-700 rounded h-11 px-3" />
-          <button onClick={handleAdd} className="bg-zinc-800 px-4 h-11 rounded border border-zinc-700">Add Repo</button>
-        </div>
-        {repos.map((r) => (
-          <div key={r.repo_full_name} className="flex justify-between items-center p-2 border border-zinc-800 rounded">
-            <span className="font-mono text-sm">{r.repo_full_name}</span>
-            <button onClick={() => handleDelete(r.repo_full_name)} className="text-red-400">Delete</button>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
 export default function SettingsPage() {
   const { settings, updateSettings, resetSettings, loaded, defaults } = useSettings();
   const { resetLayout } = useLayout();
@@ -407,8 +497,6 @@ export default function SettingsPage() {
       <AlertRulesSection apiUrl={settings.apiUrl} />
 
       {/* Webhooks */}
-      
-      <MonitoredReposSection apiUrl={settings.apiUrl} />
       <WebhooksSection apiUrl={settings.apiUrl} />
 
       {/* Layout */}
