@@ -1,0 +1,56 @@
+"use client";
+
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Heart, MessageSquare, Eye, ExternalLink, TrendingUp, Search, Download, Pin, RefreshCw, BarChart3, Star } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { UpdatedAgo } from "@/components/updated-ago";
+import { usePins } from "@/hooks/use-pins";
+import { apiFetch } from "@/lib/api";
+
+
+interface Article {
+  id: number;
+  title: string;
+  description: string;
+  url: string;
+  published_at: string;
+  positive_reactions_count: number;
+  comments_count: number;
+  page_views_count: number;
+  reading_time_minutes: number;
+  tag_list: string[];
+  published: boolean;
+}
+
+interface HNPost {
+  objectID: string;
+  title: string;
+  url: string;
+  points: number;
+  num_comments: number;
+  created_at: string;
+  author: string;
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days < 1) return "today";
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const half = Math.floor(sorted.length / 2);
+  if (sorted.length % 2) return sorted[half];
+  return (sorted[half - 1] + sorted[half]) / 2;
+}

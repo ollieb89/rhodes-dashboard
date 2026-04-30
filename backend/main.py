@@ -160,6 +160,10 @@ _github_token_cache: str = ""
 
 async def _get_all_monitored_repos_raw() -> list[dict]:
     """Fetch raw data for all monitored repos, falling back to all ollieb89 repos if none specified."""
+    cached = _cache.get("_all_monitored_repos_raw")
+    if cached is not None:
+        return cached
+
     _init_repos_db()
     conn = sqlite3.connect(DB_PATH)
     monitored = [r[0] for r in conn.execute("SELECT repo_full_name FROM monitored_repos").fetchall()]
@@ -169,7 +173,9 @@ async def _get_all_monitored_repos_raw() -> list[dict]:
         # Fallback to default
         try:
             repos_raw = await github_api("/users/ollieb89/repos?per_page=100&sort=updated")
-            return repos_raw if isinstance(repos_raw, list) else []
+            result = repos_raw if isinstance(repos_raw, list) else []
+            _cache.set("_all_monitored_repos_raw", result, 120)
+            return result
         except Exception:
             return []
     # Fetch specific repos in parallel
@@ -177,7 +183,9 @@ async def _get_all_monitored_repos_raw() -> list[dict]:
         *[github_api(f"/repos/{name}") for name in monitored],
         return_exceptions=True
     )
-    return [r for r in results if not isinstance(r, Exception) and isinstance(r, dict)]
+    result = [r for r in results if not isinstance(r, Exception) and isinstance(r, dict)]
+    _cache.set("_all_monitored_repos_raw", result, 120)
+    return result
 
 async def github_api(path: str):
     """Authenticated async GET to GitHub REST API. Raises HTTPException(503) if no token."""
@@ -428,11 +436,12 @@ async def get_metrics():
 
 @app.get("/api/overview")
 async def get_overview():
-    products_count, articles_count, agents_count, total_stars = await asyncio.gather(
+    products_count, articles_count, agents_count, total_stars, metrics_data = await asyncio.gather(
         _get_products_count(),
         _get_articles_count(),
         _get_agents_count(),
         _get_total_stars(),
+        get_metrics(),
         return_exceptions=True,
     )
 
@@ -440,6 +449,8 @@ async def get_overview():
     articles_count = 0 if isinstance(articles_count, Exception) else articles_count
     agents_count = 0 if isinstance(agents_count, Exception) else agents_count
     total_stars = 0 if isinstance(total_stars, Exception) else total_stars
+    
+    metrics = metrics_data if not isinstance(metrics_data, Exception) else {}
 
     await asyncio.to_thread(
         _save_snapshot, products_count, total_stars, articles_count, agents_count
@@ -451,7 +462,7 @@ async def get_overview():
         "total_agents": agents_count,
         "total_stars": total_stars,
         "active_agents": agents_count,
-        "total_article_views": 0,
+        "total_article_views": metrics.get("total_article_views", 0),
     }
 
     # Evaluate alert rules and append triggered alerts to events log

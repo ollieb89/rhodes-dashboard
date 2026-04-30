@@ -1,449 +1,154 @@
 "use client";
 
-import { useSettings } from "@/hooks/use-settings";
-import { useLayout } from "@/hooks/use-layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings as SettingsIcon, RotateCcw, Trash2, Plus, Send } from "lucide-react";
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, Plus, Github, RefreshCw } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+import { ErrorBoundary } from "@/components/error-boundary";
 
-interface AlertRule {
-  id: string;
-  metric: string;
-  operator: string;
-  threshold: number;
-  window_minutes: number;
-  notify_channel: string;
-  created_at: string;
-  enabled: boolean;
+interface MonitoredRepo {
+  repo_full_name: string;
+  added_at: string;
 }
 
-const METRIC_LABELS: Record<string, string> = {
-  active_agents: "Active Agents",
-  total_stars: "Total Stars",
-  total_repos: "Total Repos",
-  total_articles: "Total Articles",
-  total_article_views: "Article Views",
-};
-
-const OPERATORS = ["<", ">", "<=", ">=", "=="];
-
-function AlertRulesSection({ apiUrl }: { apiUrl: string }) {
-  const [rules, setRules] = useState<AlertRule[]>([]);
+export default function SettingsPage() {
+  const [repos, setRepos] = useState<MonitoredRepo[]>([]);
+  const [newRepo, setNewRepo] = useState("");
   const [loading, setLoading] = useState(true);
-  const [metric, setMetric] = useState("active_agents");
-  const [operator, setOperator] = useState(">");
-  const [threshold, setThreshold] = useState("");
-  const [adding, setAdding] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchRules = async () => {
+  const loadRepos = async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`${apiUrl}/api/alerts/rules`);
+      const res = await apiFetch("/api/settings/repos");
       const data = await res.json();
-      setRules(data.rules ?? []);
-    } catch {
-      setRules([]);
+      setRepos(data.repos || []);
+    } catch (err) {
+      console.error("Failed to load repos", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRules();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiUrl]);
+    loadRepos();
+  }, []);
 
-  const handleAdd = async () => {
-    const thresh = parseFloat(threshold);
-    if (isNaN(thresh)) return;
-    setAdding(true);
+  const handleAddRepo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRepo.includes("/") || submitting) return;
+    setSubmitting(true);
+    setError(null);
     try {
-      await fetch(`${apiUrl}/api/alerts/rules`, {
+      const res = await apiFetch("/api/settings/repos", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ metric, operator, threshold: thresh }),
+        body: JSON.stringify({ repo_full_name: newRepo.trim() }),
       });
-      setThreshold("");
-      await fetchRules();
+      if (res.ok) {
+        setNewRepo("");
+        loadRepos();
+      } else {
+        setError("Failed to add repository.");
+      }
+    } catch (err) {
+      setError("Failed to add repository.");
     } finally {
-      setAdding(false);
+      setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    await fetch(`${apiUrl}/api/alerts/rules/${id}`, { method: "DELETE" });
-    await fetchRules();
+  const handleDeleteRepo = async (fullName: string) => {
+    try {
+      const [owner, repo] = fullName.split("/");
+      const res = await apiFetch(`/api/settings/repos/${owner}/${repo}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        loadRepos();
+      }
+    } catch (err) {
+      console.error("Failed to remove repo", err);
+    }
   };
 
-  const inputClass =
-    "rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent h-11";
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Alert Rules</CardTitle>
-        <CardDescription>
-          Trigger events when metrics cross thresholds.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Add form */}
-        <div className="flex flex-wrap gap-2 items-end">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-500">Metric</label>
-            <select
-              value={metric}
-              onChange={(e) => setMetric(e.target.value)}
-              className={inputClass}
-            >
-              {Object.entries(METRIC_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
+    <ErrorBoundary>
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-zinc-100">Settings</h1>
+            <p className="text-sm text-zinc-500 mt-1">Configure dashboard data sources and preferences.</p>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-500">Operator</label>
-            <select
-              value={operator}
-              onChange={(e) => setOperator(e.target.value)}
-              className={inputClass + " w-24"}
-            >
-              {OPERATORS.map((op) => (
-                <option key={op} value={op}>{op}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-500">Threshold</label>
-            <input
-              type="number"
-              value={threshold}
-              onChange={(e) => setThreshold(e.target.value)}
-              placeholder="0"
-              className={inputClass + " w-28"}
-            />
-          </div>
-          <button
-            onClick={handleAdd}
-            disabled={adding || !threshold}
-            className="inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors h-11 disabled:opacity-50"
-          >
-            <Plus className="w-4 h-4" />
-            Add Rule
-          </button>
         </div>
 
-        {/* Rules list */}
-        {loading ? (
-          <div className="space-y-2">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-10 rounded bg-zinc-800 animate-pulse" />
-            ))}
-          </div>
-        ) : rules.length === 0 ? (
-          <p className="text-sm text-zinc-500">No alert rules configured.</p>
-        ) : (
-          <div className="rounded-md border border-zinc-800 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-800 text-zinc-500">
-                  <th className="text-left px-3 py-2 font-medium">Metric</th>
-                  <th className="text-left px-3 py-2 font-medium">Operator</th>
-                  <th className="text-left px-3 py-2 font-medium">Threshold</th>
-                  <th className="text-left px-3 py-2 font-medium">Enabled</th>
-                  <th className="px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {rules.map((rule) => (
-                  <tr key={rule.id} className="border-b border-zinc-800 last:border-0">
-                    <td className="px-3 py-2 text-zinc-200">
-                      {METRIC_LABELS[rule.metric] ?? rule.metric}
-                    </td>
-                    <td className="px-3 py-2 text-zinc-400 font-mono">{rule.operator}</td>
-                    <td className="px-3 py-2 text-zinc-200">{rule.threshold}</td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={
-                          rule.enabled
-                            ? "text-xs text-emerald-400"
-                            : "text-xs text-zinc-500"
-                        }
-                      >
-                        {rule.enabled ? "Yes" : "No"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <button
-                        onClick={() => handleDelete(rule.id)}
-                        className="text-zinc-500 hover:text-red-400 transition-colors"
-                        title="Delete rule"
+        <div className="grid grid-cols-1 gap-6">
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                <Github className="w-4 h-4" />
+                Monitored Repositories
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form onSubmit={handleAddRepo} className="flex gap-2">
+                <input
+                  placeholder="owner/repo (e.g. ollieb89/rhodes-dashboard)"
+                  value={newRepo}
+                  onChange={(e) => setNewRepo(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <Button 
+                  type="submit" 
+                  disabled={submitting || !newRepo.includes("/")}
+                  size="sm"
+                  className="bg-violet-600 hover:bg-violet-700 h-9"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add
+                </Button>
+              </form>
+              
+              {error && <p className="text-xs text-red-400">{error}</p>}
+
+              <div className="space-y-2">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="w-6 h-6 animate-spin text-zinc-700" />
+                  </div>
+                ) : repos.length === 0 ? (
+                  <div className="text-center py-8 border border-dashed border-zinc-800 rounded-lg">
+                    <p className="text-sm text-zinc-600">No custom repositories configured.</p>
+                    <p className="text-[10px] text-zinc-700 mt-1">Defaulting to all repos for ollieb89.</p>
+                  </div>
+                ) : (
+                  repos.map((repo) => (
+                    <div 
+                      key={repo.repo_full_name} 
+                      className="flex items-center justify-between p-3 rounded-lg bg-zinc-950 border border-zinc-800"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Github className="w-4 h-4 text-zinc-500" />
+                        <span className="text-sm font-medium text-zinc-200">{repo.repo_full_name}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteRepo(repo.repo_full_name)}
+                        className="text-zinc-500 hover:text-red-400 hover:bg-red-400/10 h-8 w-8"
                       >
                         <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-interface Webhook {
-  id: string;
-  url: string;
-  events: string[];
-  secret: string;
-  created_at: string;
-}
-
-const ALL_EVENTS = ["alert", "incident", "agent_failure"];
-
-function WebhooksSection({ apiUrl }: { apiUrl: string }) {
-  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [url, setUrl] = useState("");
-  const [selectedEvents, setSelectedEvents] = useState<string[]>(["alert"]);
-  const [secret, setSecret] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [testResults, setTestResults] = useState<Record<string, string>>({});
-  const fetchWebhooks = async () => {
-    try {
-      const res = await fetch(`${apiUrl}/api/webhooks`);
-      const data = await res.json();
-      setWebhooks(Array.isArray(data) ? data : []);
-    } catch { setWebhooks([]); } finally { setLoading(false); }
-  };
-  useEffect(() => { fetchWebhooks(); }, [apiUrl]);
-  const toggleEvent = (ev: string) => {
-    setSelectedEvents((prev) => prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev]);
-  };
-  const handleAdd = async () => {
-    if (!url.trim()) return;
-    setAdding(true);
-    try {
-      await fetch(`${apiUrl}/api/webhooks`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), events: selectedEvents, secret: secret.trim() || undefined }),
-      });
-      setUrl(""); setSecret(""); setSelectedEvents(["alert"]); await fetchWebhooks();
-    } finally { setAdding(false); }
-  };
-  const handleDelete = async (id: string) => {
-    await fetch(`${apiUrl}/api/webhooks/${id}`, { method: "DELETE" });
-    await fetchWebhooks();
-  };
-  const handleTest = async (id: string) => {
-    setTestResults((prev) => ({ ...prev, [id]: "..." }));
-    try {
-      const res = await fetch(`${apiUrl}/api/webhooks/${id}/test`, { method: "POST" });
-      const data = await res.json();
-      setTestResults((prev) => ({ ...prev, [id]: data.ok ? `${data.status_code} OK` : (data.error ?? `${data.status_code}`) }));
-    } catch { setTestResults((prev) => ({ ...prev, [id]: "Error" })); }
-  };
-  const inputClass = "rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 h-11";
-  return (
-    <Card>
-      <CardHeader><CardTitle>Webhooks</CardTitle><CardDescription>Receive alert notifications.</CardDescription></CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="URL" className={inputClass + " flex-1"} />
-            <input type="text" value={secret} onChange={(e) => setSecret(e.target.value)} placeholder="Secret" className={inputClass + " w-48"} />
-          </div>
-          <div className="flex items-center gap-4">
-            {ALL_EVENTS.map((ev) => (
-              <label key={ev} className="flex items-center gap-1 text-sm"><input type="checkbox" checked={selectedEvents.includes(ev)} onChange={() => toggleEvent(ev)} /> {ev}</label>
-            ))}
-            <button onClick={handleAdd} disabled={adding || !url.trim()} className="ml-auto bg-zinc-800 px-4 h-11 rounded border border-zinc-700 hover:bg-zinc-700">Add Webhook</button>
-          </div>
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        {!loading && webhooks.map((wh) => (
-          <div key={wh.id} className="flex items-center justify-between p-2 border border-zinc-800 rounded">
-            <div className="text-xs truncate max-w-xs">{wh.url}</div>
-            <div className="flex gap-2">
-              <button onClick={() => handleTest(wh.id)} className="text-violet-400">Test</button>
-              <button onClick={() => handleDelete(wh.id)} className="text-red-400">Delete</button>
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-interface MonitoredRepo { repo_full_name: string; added_at: string; }
-function MonitoredReposSection({ apiUrl }: { apiUrl: string }) {
-  const [repos, setRepos] = useState<MonitoredRepo[]>([]);
-  const [newRepo, setNewRepo] = useState("");
-  const fetchRepos = async () => {
-    try {
-      const res = await fetch(`${apiUrl}/api/settings/repos`);
-      const data = await res.json();
-      setRepos(data.repos ?? []);
-    } catch { setRepos([]); }
-  };
-  useEffect(() => { fetchRepos(); }, [apiUrl]);
-  const handleAdd = async () => {
-    if (!newRepo.trim()) return;
-    await fetch(`${apiUrl}/api/settings/repos`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ repo_full_name: newRepo.trim() }),
-    });
-    setNewRepo(""); await fetchRepos();
-  };
-  const handleDelete = async (fn: string) => {
-    const [o, n] = fn.split("/");
-    await fetch(`${apiUrl}/api/settings/repos/${o}/${n}`, { method: "DELETE" });
-    await fetchRepos();
-  };
-  return (
-    <Card>
-      <CardHeader><CardTitle>Monitored Repositories</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex gap-2">
-          <input type="text" value={newRepo} onChange={(e) => setNewRepo(e.target.value)} placeholder="owner/repo" className="flex-1 bg-zinc-900 border border-zinc-700 rounded h-11 px-3" />
-          <button onClick={handleAdd} className="bg-zinc-800 px-4 h-11 rounded border border-zinc-700">Add Repo</button>
-        </div>
-        {repos.map((r) => (
-          <div key={r.repo_full_name} className="flex justify-between items-center p-2 border border-zinc-800 rounded">
-            <span className="font-mono text-sm">{r.repo_full_name}</span>
-            <button onClick={() => handleDelete(r.repo_full_name)} className="text-red-400">Delete</button>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-export default function SettingsPage() {
-  const { settings, updateSettings, resetSettings, loaded, defaults } = useSettings();
-  const { resetLayout } = useLayout();
-
-  if (!loaded) return null;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <SettingsIcon className="w-5 h-5 text-violet-400" />
-        <h1 className="text-lg sm:text-xl font-semibold">Settings</h1>
       </div>
-
-      {/* Connection */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Connection</CardTitle>
-          <CardDescription>Configure how the dashboard connects to the backend API.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm text-muted-foreground mb-1.5">
-              API URL
-            </label>
-            <input
-              type="url"
-              value={settings.apiUrl}
-              onChange={(e) => updateSettings({ apiUrl: e.target.value })}
-              placeholder={defaults.apiUrl}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent h-11"
-            />
-            <p className="text-xs text-zinc-500 mt-1">
-              Default: {defaults.apiUrl}
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-muted-foreground mb-1.5">
-              Refresh interval (seconds)
-            </label>
-            <input
-              type="number"
-              min={5}
-              max={300}
-              value={settings.refreshInterval}
-              onChange={(e) =>
-                updateSettings({ refreshInterval: Math.max(5, Number(e.target.value) || 30) })
-              }
-              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent h-11"
-            />
-            <p className="text-xs text-zinc-500 mt-1">
-              How often to poll for updates when SSE is unavailable (5–300s).
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Display */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Display</CardTitle>
-          <CardDescription>Appearance and theme preferences.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm text-muted-foreground mb-1.5">
-              Theme
-            </label>
-            <select
-              value={settings.theme}
-              onChange={(e) =>
-                updateSettings({
-                  theme: e.target.value as "light" | "dark" | "system",
-                })
-              }
-              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent h-11"
-            >
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-              <option value="system">System</option>
-            </select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Alert Rules */}
-      <AlertRulesSection apiUrl={settings.apiUrl} />
-
-      {/* Webhooks */}
-      
-      <MonitoredReposSection apiUrl={settings.apiUrl} />
-      <WebhooksSection apiUrl={settings.apiUrl} />
-
-      {/* Layout */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Layout</CardTitle>
-          <CardDescription>Manage the overview page card order.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <button
-            onClick={resetLayout}
-            className="inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors h-11"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Reset Dashboard Layout
-          </button>
-        </CardContent>
-      </Card>
-
-      {/* Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Actions</CardTitle>
-          <CardDescription>Reset or clear stored data.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <button
-            onClick={resetSettings}
-            className="inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors h-11"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Reset to defaults
-          </button>
-        </CardContent>
-      </Card>
-    </div>
+    </ErrorBoundary>
   );
 }
