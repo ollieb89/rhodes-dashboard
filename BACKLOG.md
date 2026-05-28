@@ -994,7 +994,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-055** · S · Repository Configuration
+- [x] **DASH-055** · S · Repository Configuration
 
   Let Ollie add/remove GitHub repositories from the monitoring list directly from the dashboard.
 
