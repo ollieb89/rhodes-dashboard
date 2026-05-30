@@ -140,21 +140,32 @@ export default function ContentPage() {
     const sorted = [...articles.filter((a) => isArticlePinned(String(a.id))), ...articles.filter((a) => !isArticlePinned(String(a.id)))];
     
     const views = articles.map(a => a.page_views_count ?? 0).filter(v => v > 0);
+    const reactions = articles.map(a => a.positive_reactions_count ?? 0).filter(v => v > 0);
+
     const getMedian = (arr: number[]) => {
       if (arr.length === 0) return 0;
-      const mid = Math.floor(arr.length / 2);
       const s = [...arr].sort((a, b) => a - b);
-      return arr.length % 2 !== 0 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+      const mid = Math.floor(s.length / 2);
+      return s.length % 2 !== 0 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
     };
+
     const medianViews = getMedian(views);
-    const sortedViews = [...views].sort((a, b) => b - a);
-    const top10Threshold = sortedViews.length > 0 ? sortedViews[Math.max(0, Math.floor(sortedViews.length * 0.1))] : 0;
+    const medianReactions = getMedian(reactions);
+
+    const getTop10Threshold = (arr: number[]) => {
+      if (arr.length === 0) return 0;
+      const s = [...arr].sort((a, b) => b - a);
+      return s[Math.max(0, Math.floor(s.length * 0.1))];
+    };
+
+    const top10ViewsThreshold = getTop10Threshold(views);
+    const top10ReactionsThreshold = getTop10Threshold(reactions);
 
     return { 
       sortedArticles: sorted, 
       published: sorted.filter((a) => a.published), 
       drafts: sorted.filter((a) => !a.published),
-      benchmarks: { medianViews, top10Threshold }
+      benchmarks: { medianViews, medianReactions, top10ViewsThreshold, top10ReactionsThreshold }
     };
   }, [articles, isArticlePinned]);
   const totalViews = articles.reduce(
@@ -265,7 +276,7 @@ export default function ContentPage() {
                           >
                             {article.published ? "published" : "draft"}
                           </Badge>
-                          {article.page_views_count >= benchmarks.top10Threshold && article.page_views_count > 0 && (
+                          {(article.page_views_count >= benchmarks.top10ViewsThreshold || article.positive_reactions_count >= benchmarks.top10ReactionsThreshold) && (article.page_views_count > 0 || article.positive_reactions_count > 0) && (
                             <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[10px] py-0 px-1.5 flex items-center gap-1">
                               <TrendingUp className="w-2.5 h-2.5" />
                               Top Performer
@@ -288,10 +299,15 @@ export default function ContentPage() {
                             {article.description}
                           </p>
                         )}
-                        <div className="flex items-center gap-4 mt-2">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
                           <span className="flex items-center gap-1 text-xs text-zinc-500">
                             <Heart className="w-3 h-3" />
                             {article.positive_reactions_count}
+                            {article.positive_reactions_count > 0 && benchmarks.medianReactions > 0 && (
+                              <span className="text-[10px] text-zinc-600 ml-0.5">
+                                ({(article.positive_reactions_count / benchmarks.medianReactions).toFixed(1)}x)
+                              </span>
+                            )}
                           </span>
                           <span className="flex items-center gap-1 text-xs text-zinc-500">
                             <MessageSquare className="w-3 h-3" />
@@ -301,13 +317,14 @@ export default function ContentPage() {
                             <span className="flex items-center gap-1 text-xs text-zinc-500">
                               <Eye className="w-3 h-3" />
                               {article.page_views_count.toLocaleString()}
+                              {benchmarks.medianViews > 0 && (
+                                <span className="text-[10px] text-zinc-600 ml-0.5">
+                                  ({(article.page_views_count / benchmarks.medianViews).toFixed(1)}x)
+                                </span>
+                              )}
                             </span>
                           )}
-                          {article.page_views_count > 0 && benchmarks.medianViews > 0 && (
-                            <span className="text-[10px] font-medium text-emerald-500/80 bg-emerald-500/5 px-1.5 py-0.5 rounded border border-emerald-500/10">
-                              {(article.page_views_count / benchmarks.medianViews).toFixed(1)}x avg views
-                            </span>
-                          )}
+
                           {article.tag_list?.slice(0, 3).map((tag) => (
                             <span
                               key={tag}
