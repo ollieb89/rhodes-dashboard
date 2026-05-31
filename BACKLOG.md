@@ -1010,7 +1010,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ### P2 — Nice-to-have
 
-- [ ] **DASH-056** · M · Article Performance Benchmarking
+- [x] **DASH-056** · M · Article Performance Benchmarking
 
   Add benchmarking to the Content page to help identify outliers.
 

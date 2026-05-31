@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { NAVIGATION_SHORTCUTS } from "@/lib/shortcuts";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
+import { usePins } from "@/hooks/use-pins";
 import {
   LayoutDashboard, Package, FileText, Bot, BarChart3,
   Zap, Menu, X, Sun, Moon, AlertTriangle, Settings, Truck,
+  Pin,
 } from "lucide-react";
 
-const nav = [
+const NAV_ITEMS = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/products", label: "Products", icon: Package },
   { href: "/content", label: "Content", icon: FileText },
@@ -33,6 +35,7 @@ export function Sidebar() {
   const [open, setOpen] = useState(false);
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const { pins, toggle, isPinned } = usePins("sidebar");
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -60,6 +63,54 @@ export function Sidebar() {
   const isDark = resolvedTheme === "dark";
   const toggleTheme = () => setTheme(isDark ? "light" : "dark");
 
+  const { pinnedItems, regularItems } = useMemo(() => {
+    const pinned = NAV_ITEMS.filter(item => pins.has(item.href));
+    const regular = NAV_ITEMS.filter(item => !pins.has(item.href));
+    return { pinnedItems: pinned, regularItems: regular };
+  }, [pins]);
+
+  const renderNavLink = (item: typeof NAV_ITEMS[0]) => {
+    const { href, label, icon: Icon, shortcut } = item;
+    const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+    const pinned = isPinned(href);
+
+    return (
+      <div key={href} className="group flex items-center gap-1 px-2">
+        <Link
+          href={href}
+          className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+            active
+              ? "bg-violet-600/20 text-violet-300 font-medium"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+          }`}
+        >
+          <Icon className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{label}</span>
+          {shortcut && (
+            <kbd className="hidden group-hover:inline-flex items-center text-[9px] font-mono text-zinc-600 bg-zinc-800 border border-zinc-700 rounded px-1 py-0.5 leading-none">
+              g{shortcut}
+            </kbd>
+          )}
+        </Link>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggle(href);
+          }}
+          className={`p-1.5 rounded-md transition-all ${
+            pinned 
+              ? "text-violet-400 opacity-100 bg-violet-400/10" 
+              : "text-zinc-600 opacity-0 group-hover:opacity-100 hover:text-zinc-400 hover:bg-zinc-800"
+          }`}
+          title={pinned ? "Unpin from favorites" : "Pin to favorites"}
+        >
+          <Pin className={`w-3.5 h-3.5 ${pinned ? "fill-current" : ""}`} />
+        </button>
+      </div>
+    );
+  };
+
   const sidebarContent = (
     <>
       {/* Brand */}
@@ -83,29 +134,24 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5">
-        {nav.map(({ href, label, icon: Icon, shortcut }) => {
-          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`group flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                active
-                  ? "bg-violet-600/20 text-violet-300 font-medium"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-              }`}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span className="flex-1">{label}</span>
-              {shortcut && (
-                <kbd className="hidden group-hover:inline-flex items-center text-[9px] font-mono text-zinc-600 bg-zinc-800 border border-zinc-700 rounded px-1 py-0.5 leading-none">
-                  g{shortcut}
-                </kbd>
-              )}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-1 py-3 space-y-4 overflow-y-auto">
+        {pinnedItems.length > 0 && (
+          <div className="space-y-1">
+            <div className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">
+              Favorites
+            </div>
+            {pinnedItems.map(renderNavLink)}
+          </div>
+        )}
+
+        <div className="space-y-1">
+          {pinnedItems.length > 0 && (
+            <div className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">
+              Menu
+            </div>
+          )}
+          {regularItems.map(renderNavLink)}
+        </div>
       </nav>
 
       {/* Footer */}
