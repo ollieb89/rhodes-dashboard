@@ -1022,7 +1022,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-057** · S · Sidebar Customization
+- [x] **DASH-057** · S · Sidebar Customization
 
   Let users pin their most-used pages to the top of the sidebar.
 
