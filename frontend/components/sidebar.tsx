@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
 import { usePins } from "@/hooks/use-pins";
+import { apiFetch } from "@/lib/api";
 import {
   LayoutDashboard, Package, FileText, Bot, BarChart3,
   Zap, Menu, X, Sun, Moon, AlertTriangle, Settings, Truck,
@@ -36,8 +37,28 @@ export function Sidebar() {
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { pins, toggle, isPinned } = usePins("sidebar");
+  const [incidentCount, setIncidentCount] = useState(0);
 
   useEffect(() => { setMounted(true); }, []);
+
+  // Poll for incidents count
+  useEffect(() => {
+    const fetchIncidents = async () => {
+      try {
+        const res = await apiFetch("/api/incidents");
+        if (res.ok) {
+          const data = await res.json();
+          const active = (data.incidents ?? []).filter((i: any) => 
+            i.severity === "critical" || i.severity === "warning"
+          ).length;
+          setIncidentCount(active);
+        }
+      } catch (e) {}
+    };
+    fetchIncidents();
+    const interval = setInterval(fetchIncidents, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Close sidebar on route change (mobile)
   useEffect(() => { setOpen(false); }, [pathname]);
@@ -73,6 +94,7 @@ export function Sidebar() {
     const { href, label, icon: Icon, shortcut } = item;
     const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
     const pinned = isPinned(href);
+    const isIncidents = href === "/incidents";
 
     return (
       <div key={href} className="group flex items-center gap-1 px-2">
@@ -86,7 +108,12 @@ export function Sidebar() {
         >
           <Icon className="w-4 h-4 shrink-0" />
           <span className="flex-1">{label}</span>
-          {shortcut && (
+          {isIncidents && incidentCount > 0 && (
+            <span className="flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold rounded-full bg-red-500 text-white animate-in zoom-in duration-300">
+              {incidentCount}
+            </span>
+          )}
+          {shortcut && !isIncidents && (
             <kbd className="hidden group-hover:inline-flex items-center text-[9px] font-mono text-zinc-600 bg-zinc-800 border border-zinc-700 rounded px-1 py-0.5 leading-none">
               g{shortcut}
             </kbd>

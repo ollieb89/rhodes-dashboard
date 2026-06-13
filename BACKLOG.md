@@ -229,6 +229,15 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 ---
 
 ### P2 — Nice-to-have
+n- [x] **DASH-058** · M · Real-time Incident Feed
+
+  Improve the Incident page visibility.
+
+  **Frontend:** On the Overview page, if there are active incidents (severity = critical or warning), show a "Live Incidents" alert banner at the very top. Add a small "New" indicator to the Incidents sidebar link when new incidents are detected (count persisted in session state).
+
+  **Acceptance criteria:**
+  - Incident banner appears only when active issues exist
+  - "New" badge appears on sidebar link correctly
 
 - [x] **DASH-015** · S · Add keyboard shortcuts for sidebar navigation
 
@@ -389,6 +398,15 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 ---
 
 ### P2 — Nice-to-have
+n- [x] **DASH-058** · M · Real-time Incident Feed
+
+  Improve the Incident page visibility.
+
+  **Frontend:** On the Overview page, if there are active incidents (severity = critical or warning), show a "Live Incidents" alert banner at the very top. Add a small "New" indicator to the Incidents sidebar link when new incidents are detected (count persisted in session state).
+
+  **Acceptance criteria:**
+  - Incident banner appears only when active issues exist
+  - "New" badge appears on sidebar link correctly
 
 - [x] **DASH-024** · S · Dark/light theme toggle
 
@@ -499,6 +517,15 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 ---
 
 ### P2 — Nice-to-have
+n- [x] **DASH-058** · M · Real-time Incident Feed
+
+  Improve the Incident page visibility.
+
+  **Frontend:** On the Overview page, if there are active incidents (severity = critical or warning), show a "Live Incidents" alert banner at the very top. Add a small "New" indicator to the Incidents sidebar link when new incidents are detected (count persisted in session state).
+
+  **Acceptance criteria:**
+  - Incident banner appears only when active issues exist
+  - "New" badge appears on sidebar link correctly
 
 - [x] **DASH-029** · S · "Last updated" timestamps on all data cards
 
@@ -610,6 +637,15 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 ---
 
 ### P2 — Nice-to-have
+n- [x] **DASH-058** · M · Real-time Incident Feed
+
+  Improve the Incident page visibility.
+
+  **Frontend:** On the Overview page, if there are active incidents (severity = critical or warning), show a "Live Incidents" alert banner at the very top. Add a small "New" indicator to the Incidents sidebar link when new incidents are detected (count persisted in session state).
+
+  **Acceptance criteria:**
+  - Incident banner appears only when active issues exist
+  - "New" badge appears on sidebar link correctly
 
 - [x] **DASH-034** · S · Manual refresh controls on major pages
 
@@ -717,6 +753,15 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 ---
 
 ### P2 — Nice-to-have
+n- [x] **DASH-058** · M · Real-time Incident Feed
+
+  Improve the Incident page visibility.
+
+  **Frontend:** On the Overview page, if there are active incidents (severity = critical or warning), show a "Live Incidents" alert banner at the very top. Add a small "New" indicator to the Incidents sidebar link when new incidents are detected (count persisted in session state).
+
+  **Acceptance criteria:**
+  - Incident banner appears only when active issues exist
+  - "New" badge appears on sidebar link correctly
 
 - [x] **DASH-039** · S · Systemd service docs + helper scripts
 
@@ -877,6 +922,15 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 ---
 
 ### P2 — Nice-to-have
+n- [x] **DASH-058** · M · Real-time Incident Feed
+
+  Improve the Incident page visibility.
+
+  **Frontend:** On the Overview page, if there are active incidents (severity = critical or warning), show a "Live Incidents" alert banner at the very top. Add a small "New" indicator to the Incidents sidebar link when new incidents are detected (count persisted in session state).
+
+  **Acceptance criteria:**
+  - Incident banner appears only when active issues exist
+  - "New" badge appears on sidebar link correctly
 
 - [x] **DASH-049** · M · Agent dependency graph
 
@@ -1009,6 +1063,15 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 ---
 
 ### P2 — Nice-to-have
+n- [x] **DASH-058** · M · Real-time Incident Feed
+
+  Improve the Incident page visibility.
+
+  **Frontend:** On the Overview page, if there are active incidents (severity = critical or warning), show a "Live Incidents" alert banner at the very top. Add a small "New" indicator to the Incidents sidebar link when new incidents are detected (count persisted in session state).
+
+  **Acceptance criteria:**
+  - Incident banner appears only when active issues exist
+  - "New" badge appears on sidebar link correctly
 
 - [x] **DASH-056** · M · Article Performance Benchmarking
 
@@ -1034,7 +1097,7 @@ Tasks are ordered for sequential pickup by the cron agent. Pick the first `[ ]` 
 
 ---
 
-- [ ] **DASH-058** · M · Real-time Incident Feed
+- [x] **DASH-058** · M · Real-time Incident Feed
 
   Improve the Incident page visibility.
 

@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useLayout } from "@/hooks/use-layout";
-import { Package, FileText, Bot, Activity, Clock, RefreshCw, MapPin, Users, Github, Download } from "lucide-react";
+import { Package, FileText, Bot, Activity, Clock, RefreshCw, MapPin, Users, Github, Download, AlertCircle, ChevronRight } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -171,11 +171,13 @@ export default function OverviewPage() {
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [finalizationStats, setFinalizationStats] = useState<FinalizationStats | null>(null);
   const [resources, setResources] = useState<SystemResources | null>(null);
+  const [incidents, setIncidents] = useState<any[]>([]);
+  const activeIncidents = incidents.filter(i => i.severity === "critical" || i.severity === "warning");
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [ovRes, prodRes, agentsRes, histRes, profRes, actRes, finRes, resRes] = await Promise.all([
+      const [ovRes, prodRes, agentsRes, histRes, profRes, actRes, finRes, resRes, incRes] = await Promise.all([
         apiFetch("/api/overview"),
         apiFetch("/api/products"),
         apiFetch("/api/agents"),
@@ -184,12 +186,15 @@ export default function OverviewPage() {
         apiFetch("/api/activity?limit=20").catch(() => null),
         apiFetch("/api/finalization/stats").catch(() => null),
         apiFetch("/api/system/resources").catch(() => null),
+        apiFetch("/api/incidents").catch(() => null),
+        apiFetch("/api/incidents").catch(() => null),
       ]);
       const ov = await ovRes.json();
       if (profRes) { const profData = await profRes.json(); setProfile(profData); }
       if (actRes) { const actData = await actRes.json(); setActivity(actData.items ?? []); }
       if (finRes && finRes.ok) { const finData = await finRes.json(); setFinalizationStats(finData); }
       if (resRes && resRes.ok) { const resData = await resRes.json(); setResources(resData); }
+      if (incRes && incRes.ok) { const incData = await incRes.json(); setIncidents(incData.incidents ?? []); }
       const prod = await prodRes.json();
       const ag = await agentsRes.json();
       setStats(ov.stats);
@@ -292,6 +297,30 @@ export default function OverviewPage() {
   return (
     <ErrorBoundary>
     <div className="space-y-6 max-w-6xl">
+      {activeIncidents.length > 0 && (
+        <Link href="/incidents" className="block">
+          <div className="bg-red-950/20 border border-red-900/40 rounded-xl px-4 py-3 flex items-center justify-between hover:bg-red-950/30 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="bg-red-500/20 p-2 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-red-200">
+                  {activeIncidents.length} Active Incident{activeIncidents.length > 1 ? "s" : ""}
+                </p>
+                <p className="text-xs text-red-400/80">
+                  {activeIncidents[0].title}
+                  {activeIncidents.length > 1 && ` and ${activeIncidents.length - 1} others`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-red-400">
+              <span className="text-xs font-medium">View details</span>
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </div>
+        </Link>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold text-zinc-100">Overview</h1>
